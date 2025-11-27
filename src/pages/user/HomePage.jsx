@@ -1,9 +1,7 @@
-// src/pages/user/HomePage.jsx
-import React from "react";
-import { Link } from "react-router-dom";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import ProductCard from "../../components/ProductCard";
+import { Link } from "react-router-dom";
 
 // TEMP demo data – later connect to backend
 const demoProducts = [
@@ -47,37 +45,7 @@ export default function HomePage() {
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-10">
-        {/* ⭐ VIDEO SECTION AT TOP ⭐ */}
-        <section className="mb-4 rounded-3xl overflow-hidden border border-slate-800 shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
-          <div className="relative">
-            <video
-              className="w-full h-[260px] sm:h-[340px] md:h-[420px] object-cover"
-              autoPlay
-              loop
-              muted
-              playsInline
-            >
-              <source
-                src="https://videos.pexels.com/video-files/3180111/3180111-uhd_2560_1440_24fps.mp4"
-                type="video/mp4"
-              />
-            </video>
-
-            {/* Dark gradient + text overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent flex items-end">
-              <div className="p-5 sm:p-8">
-                <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] text-emerald-200/80 mb-2">
-                  INSIDE OUR LAB
-                </p>
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-emerald-50 drop-shadow-lg max-w-xl">
-                  Watch how your ayurvedic essentials are crafted with care.
-                </h2>
-              </div>
-            </div>
-          </div>
-        </section>
-
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-10">
         {/* Hero banner */}
         <section className="grid md:grid-cols-[1.6fr_1fr] gap-5 items-center">
           <div className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-emerald-400/10 to-amber-300/10 border border-emerald-400/30 p-6 sm:p-8 shadow-[0_22px_60px_rgba(0,0,0,0.8)]">
@@ -148,8 +116,10 @@ export default function HomePage() {
             {demoCategories.map((cat) => (
               <Link
                 key={cat.id}
-                to={/products/${cat.id}}
-                className="rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-400/70 hover:bg-slate-900/90 p-3 flex flex-col items-center gap-2 text-center text-xs transition"
+                to={"/products/" + cat.id}   // ✅ FIXED (SAFE STRING)
+                className="rounded-2xl bg-slate-900/80 border border-slate-800 
+                  hover:border-emerald-400/70 hover:bg-slate-900/90 
+                  p-3 flex flex-col items-center gap-2 text-center text-xs transition"
               >
                 <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-lg">
                   {cat.emoji}
@@ -184,6 +154,7 @@ function Row({ title, products }) {
           View more
         </Link>
       </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />

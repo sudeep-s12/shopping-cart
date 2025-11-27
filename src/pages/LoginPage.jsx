@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/pages/LoginPage.jsx
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-/* --------------------------------------------
-   OAuth Config – REPLACE with real values
---------------------------------------------- */
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
-const APPLE_CLIENT_ID = "YOUR_APPLE_CLIENT_ID";
-const APPLE_REDIRECT_URI = "https://yourdomain.com/auth/apple/callback";
 
 /* --------------------------------------------
    Reusable Text Input
@@ -35,7 +29,7 @@ function TextField({ id, label, type = "text", value, onChange, error, placehold
 }
 
 /* --------------------------------------------
-   Password Field With Eye Toggle (SVG icons)
+   Password Field With Eye Toggle
 --------------------------------------------- */
 function PasswordField({ id, label, value, onChange, error }) {
   const [show, setShow] = useState(false);
@@ -118,7 +112,7 @@ function CheckboxField({ id, checked, onChange, label }) {
 }
 
 /* --------------------------------------------
-   Social Login Buttons (now clickable)
+   Simple Social Buttons (dummy handlers)
 --------------------------------------------- */
 function SocialButton({ variant, label, children, onClick }) {
   const base =
@@ -129,10 +123,12 @@ function SocialButton({ variant, label, children, onClick }) {
     apple: "bg-slate-800 text-white hover:bg-slate-700",
   };
 
-  const className = base + " " + (variants[variant] || "");
-
   return (
-    <button type="button" className={className} onClick={onClick}>
+    <button
+      type="button"
+      className={base + " " + (variants[variant] || "")}
+      onClick={onClick}
+    >
       {children}
       <span>{label}</span>
     </button>
@@ -155,10 +151,6 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Social login
-  const [socialError, setSocialError] = useState("");
-  const googleClientRef = useRef(null);
-
   // Reset password state
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtpInput, setResetOtpInput] = useState("");
@@ -171,91 +163,6 @@ export default function LoginPage() {
   // Hardcoded admin credentials
   const ADMIN_EMAIL = "admin@sevasanjeevani.com";
   const ADMIN_PASS = "Admin@123";
-
-  /* ---------------- LOAD GOOGLE + APPLE SDKs ---------------- */
-  useEffect(() => {
-    // Google Identity script
-    const gScript = document.createElement("script");
-    gScript.src = "https://accounts.google.com/gsi/client";
-    gScript.async = true;
-    gScript.defer = true;
-    gScript.onload = () => {
-      if (
-        window.google &&
-        window.google.accounts &&
-        window.google.accounts.oauth2
-      ) {
-        googleClientRef.current =
-          window.google.accounts.oauth2.initCodeClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: "openid email profile",
-            ux_mode: "popup",
-            callback: (response) => {
-              console.log("Google login auth code:", response.code);
-
-              // TODO: send response.code to backend to exchange for tokens.
-              alert(
-                "Google login callback fired (send this code to your backend)."
-              );
-              // Example: navigate("/") after backend confirms:
-              // navigate("/shop");
-            },
-          });
-      }
-    };
-    document.body.appendChild(gScript);
-
-    // Apple script
-    const aScript = document.createElement("script");
-    aScript.src =
-      "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
-    aScript.async = true;
-    aScript.onload = () => {
-      if (window.AppleID && window.AppleID.auth) {
-        window.AppleID.auth.init({
-          clientId: APPLE_CLIENT_ID,
-          redirectURI: APPLE_REDIRECT_URI,
-          scope: "name email",
-          usePopup: true,
-        });
-      }
-    };
-    document.body.appendChild(aScript);
-  }, []);
-
-  /* ---------------- GOOGLE LOGIN HANDLER ---------------- */
-  const handleGoogleLogin = () => {
-    setSocialError("");
-    if (!googleClientRef.current) {
-      setSocialError("Google services are not ready. Please try again.");
-      return;
-    }
-    googleClientRef.current.requestCode(); // opens popup
-  };
-
-  /* ---------------- APPLE LOGIN HANDLER ---------------- */
-  const handleAppleLogin = async () => {
-    setSocialError("");
-    if (!window.AppleID || !window.AppleID.auth) {
-      setSocialError("Apple services are not ready. Please try again.");
-      return;
-    }
-
-    try {
-      const result = await window.AppleID.auth.signIn();
-      console.log("Apple login result:", result);
-
-      // result.authorization.id_token -> send to backend
-      alert(
-        "Apple login callback fired (send ID token to your backend)."
-      );
-      // Example after backend verifies:
-      // navigate("/shop");
-    } catch (err) {
-      console.error(err);
-      setSocialError("Apple sign-in was cancelled or failed. Please try again.");
-    }
-  };
 
   /* ---------------- LOGIN LOGIC ---------------- */
 
@@ -283,6 +190,12 @@ export default function LoginPage() {
 
       // 1) ADMIN LOGIN
       if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+        const adminUser = {
+          email: ADMIN_EMAIL,
+          name: "Admin",
+          role: "admin",
+        };
+        localStorage.setItem("currentUser", JSON.stringify(adminUser));
         alert("Admin logged in");
         navigate("/admin");
         return;
@@ -300,9 +213,16 @@ export default function LoginPage() {
         return;
       }
 
-      alert("Welcome back, " + foundUser.firstName + "!");
+      const currentUser = {
+        ...foundUser,
+        role: "user",
+      };
+
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+
+      alert("Welcome back, " + (foundUser.firstName || foundUser.email) + "!");
       navigate("/shop");
-    }, 1000);
+    }, 800);
   };
 
   /* ---------------- FORGOT PASSWORD FLOW ---------------- */
@@ -400,7 +320,7 @@ export default function LoginPage() {
       setEmail(resetEmail);
       setPassword("");
       setMode("login");
-    }, 1000);
+    }, 800);
   };
 
   /* ---------------- RENDER ---------------- */
@@ -418,7 +338,11 @@ export default function LoginPage() {
                 AMU
               </h1>
 
-              <button className="text-xs bg-white/10 px-3 py-1.5 rounded-full text-white backdrop-blur-md border border-white/20">
+              <button
+                className="text-xs bg-white/10 px-3 py-1.5 rounded-full text-white backdrop-blur-md border border-white/20"
+                type="button"
+                onClick={() => navigate("/")}
+              >
                 ← Back to website
               </button>
             </div>
@@ -502,12 +426,14 @@ export default function LoginPage() {
                   <div className="flex-1 h-px bg-slate-700" />
                 </div>
 
-                {/* Social Buttons */}
+                {/* Social Buttons – demo only */}
                 <div className="grid grid-cols-2 gap-3">
                   <SocialButton
                     variant="google"
                     label="Google"
-                    onClick={handleGoogleLogin}
+                    onClick={() =>
+                      alert("Google sign-in will be connected to backend later.")
+                    }
                   >
                     <span className="bg-white text-black rounded-full w-5 h-5 flex items-center justify-center font-bold">
                       G
@@ -517,17 +443,13 @@ export default function LoginPage() {
                   <SocialButton
                     variant="apple"
                     label="Apple"
-                    onClick={handleAppleLogin}
+                    onClick={() =>
+                      alert("Apple sign-in will be connected to backend later.")
+                    }
                   >
                     <span></span>
                   </SocialButton>
                 </div>
-
-                {socialError && (
-                  <p className="text-xs text-rose-400 text-center mt-2">
-                    {socialError}
-                  </p>
-                )}
 
                 {/* Create account link */}
                 <p className="text-center text-slate-400 text-sm">
@@ -589,9 +511,9 @@ export default function LoginPage() {
               </h1>
               <p className="text-slate-400 mb-6">
                 We sent a one-time code to{" "}
-                  <span className="font-medium text-slate-100">
-                    {resetEmail}
-                  </span>
+                <span className="font-medium text-slate-100">
+                  {resetEmail}
+                </span>
                 . Enter the code below and set your new password.
               </p>
 
