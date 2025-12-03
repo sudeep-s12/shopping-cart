@@ -1,23 +1,33 @@
 // src/components/Header.jsx
 import React from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { useUser } from "../context/UserContext";
 import logo from "../assets/seva-sanjeevani-logo.png";
 
 export default function Header() {
   const location = useLocation();
+  const { user: contextUser, logout: contextLogout } = useUser();
 
-  // Read current user from localStorage (set in LoginPage)
-  let currentUser = null;
-  try {
-    currentUser = JSON.parse(localStorage.getItem("currentUser"));
-  } catch (e) {
-    currentUser = null;
+  // Determine if user is logged in (check both context and localStorage for compatibility)
+  let currentUser = contextUser;
+  if (!currentUser) {
+    try {
+      currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    } catch (e) {
+      currentUser = null;
+    }
   }
   const isLoggedIn = !!currentUser;
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
-    window.location.href = "/login";
+    if (contextLogout) {
+      contextLogout().then(() => {
+        window.location.href = "/login";
+      });
+    } else {
+      window.location.href = "/login";
+    }
   };
 
   const navLinkClass = ({ isActive }) =>
@@ -99,23 +109,22 @@ export default function Header() {
           {isLoggedIn ? (
             <div className="inline-flex items-center gap-2">
               <span className="hidden sm:inline text-[11px] text-slate-300">
-                Hi, {currentUser.firstName || currentUser.name || "User"}
+                Hi, {currentUser.fullName || currentUser.firstName || currentUser.display_name || currentUser.name || currentUser.email?.split("@")[0] || "User"}
               </span>
               <button
                 onClick={handleLogout}
-                className="px-3 py-1.5 rounded-full bg-rose-500 text-white font-semibold hover:bg-rose-400"
+                className="px-3 py-1.5 rounded-full bg-rose-500 text-white font-semibold hover:bg-rose-400 text-xs"
               >
                 Logout
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => (window.location.href = "/login")}
-              className="px-3 py-1.5 rounded-full bg-emerald-500 text-slate-950 font-semibold hover:bg-emerald-400"
+            <Link
+              to="/login"
+              className="px-3 py-1.5 rounded-full bg-emerald-500 text-slate-950 font-semibold hover:bg-emerald-400 text-xs"
             >
               Sign in
-            </button>
+            </Link>
           )}
         </div>
       </div>

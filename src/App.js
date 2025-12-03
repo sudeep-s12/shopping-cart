@@ -24,6 +24,7 @@ import WishlistPage from "./pages/user/WishlistPage";
 import OrdersPage from "./pages/user/OrdersPage";
 import CheckoutPage from "./pages/user/CheckoutPage";
 import AccountPage from "./pages/user/AccountPage";
+import OrderDetailPage from "./pages/user/OrderDetailPage";
 
 // Context providers
 import { CartProvider } from "./context/CartContext";
@@ -56,6 +57,7 @@ function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/order/:orderId" element={<OrderDetailPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/account" element={<AccountPage />} />
 

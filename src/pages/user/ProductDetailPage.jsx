@@ -1,58 +1,79 @@
+// src/pages/user/ProductDetailPage.jsx
+
 import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import RatingStars from "../../components/RatingStars";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
-import { useState } from "react";
-
-// TEMP product
-const demoProduct = {
-  id: "1",
-  name: "Ashwagandha Stress Relief Capsules",
-  brand: "Seva Sanjeevani",
-  price: 499,
-  mrp: 699,
-  discount: 28,
-  rating: 4.6,
-  image:
-    "https://images.pexels.com/photos/3735762/pexels-photo-3735762.jpeg?auto=compress&cs=tinysrgb&w=600",
-  description:
-    "Classical Ashwagandha formulation to support stress management, energy and restful sleep.",
-  highlights: [
-    "Supports stress adaptation",
-    "Helps promote sound sleep",
-    "Made with high-quality Ashwagandha root",
-  ],
-  variants: ["60 capsules", "120 capsules"],
-};
+import { supabase } from "../../lib/supabaseClient";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
-  const [selectedVariant, setSelectedVariant] = useState(
-    demoProduct.variants?.[0] || null
-  );
+
+  const [product, setProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [qty, setQty] = useState(1);
+  const [loading, setLoading] = useState(true);
 
-  const inWish = isInWishlist(demoProduct.id);
+  const inWish = isInWishlist(id);
 
-  // later: fetch product by id from backend
+  // ------------------------------
+  // FETCH PRODUCT FROM SUPABASE
+  // ------------------------------
+  useEffect(() => {
+    async function loadProduct() {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        console.error("Product fetch error:", error);
+      }
+
+      setProduct(data);
+      setSelectedVariant(data?.variants?.[0] || null);
+      setLoading(false);
+    }
+
+    loadProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="bg-slate-950 min-h-screen text-slate-50 flex items-center justify-center">
+        <p>Loading product…</p>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="bg-slate-950 min-h-screen text-slate-50 flex items-center justify-center">
+        <p className="text-red-400">Product not found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[1.3fr_minmax(0,1fr)]">
-        {/* Left: Image + info */}
+
+        {/* ---------------- IMAGE + INFO ---------------- */}
         <section>
           <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4 flex flex-col md:flex-row gap-4">
             <div className="flex-1 flex items-center justify-center">
               <div className="w-full max-w-xs rounded-2xl bg-slate-800 overflow-hidden">
                 <img
-                  src={demoProduct.image}
-                  alt={demoProduct.name}
+                  src={product.image_url}
+                  alt={product.name}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -60,32 +81,41 @@ export default function ProductDetailPage() {
 
             <div className="flex-1 space-y-2 text-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">
-                {demoProduct.brand}
+                {product.brand}
               </p>
-              <h1 className="text-lg font-semibold">{demoProduct.name}</h1>
-              <RatingStars rating={demoProduct.rating} />
+
+              <h1 className="text-lg font-semibold">{product.name}</h1>
+
+              <RatingStars rating={product.rating} />
 
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-2xl font-semibold text-emerald-300">
-                  ₹{demoProduct.price}
+                  ₹{product.price}
                 </span>
-                <span className="text-xs text-slate-500 line-through">
-                  ₹{demoProduct.mrp}
-                </span>
-                <span className="text-xs text-emerald-300">
-                  {demoProduct.discount}% off
-                </span>
+
+                {product.mrp && (
+                  <span className="text-xs text-slate-500 line-through">
+                    ₹{product.mrp}
+                  </span>
+                )}
+
+                {product.discount && (
+                  <span className="text-xs text-emerald-300">
+                    {product.discount}% off
+                  </span>
+                )}
               </div>
 
               <p className="text-xs text-emerald-200 mt-2">
                 Inclusive of all taxes • In stock
               </p>
 
-              {demoProduct.variants && (
+              {/* ------------ Variants ------------- */}
+              {product.variants?.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs text-slate-300 mb-1">Choose pack</p>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {demoProduct.variants.map((v) => (
+                    {product.variants.map((v) => (
                       <button
                         key={v}
                         onClick={() => setSelectedVariant(v)}
@@ -102,6 +132,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
+              {/* ------------ Quantity ------------- */}
               <div className="mt-4 flex items-center gap-3">
                 <label className="text-xs text-slate-300">
                   Qty:
@@ -119,17 +150,22 @@ export default function ProductDetailPage() {
                 </label>
               </div>
 
+              {/* ------------ ACTION BUTTONS ------------- */}
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() =>
-                    addToCart({ ...demoProduct, variant: selectedVariant }, qty)
+                    addToCart(
+                      { ...product, variant: selectedVariant, image: product.image_url },
+                      qty
+                    )
                   }
                   className="flex-1 min-w-[130px] rounded-full bg-emerald-500 text-slate-950 text-xs font-semibold px-4 py-2.5 hover:bg-emerald-400"
                 >
                   Add to cart
                 </button>
+
                 <button
-                  onClick={() => toggleWishlist(demoProduct)}
+                  onClick={() => toggleWishlist(product)}
                   className="px-4 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-xs hover:border-emerald-400"
                 >
                   {inWish ? "♥ In wishlist" : "♡ Add to wishlist"}
@@ -138,28 +174,33 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Description & highlights */}
+          {/* ---------------- DESCRIPTION & HIGHLIGHTS ---------------- */}
           <div className="mt-5 grid md:grid-cols-2 gap-4 text-xs">
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
               <h2 className="text-sm font-semibold text-emerald-200 mb-2">
                 Product description
               </h2>
-              <p className="text-slate-300">{demoProduct.description}</p>
+              <p className="text-slate-300">
+                {product.description || "No description available."}
+              </p>
             </div>
+
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
               <h2 className="text-sm font-semibold text-emerald-200 mb-2">
                 Highlights
               </h2>
               <ul className="list-disc pl-4 space-y-1 text-slate-300">
-                {demoProduct.highlights.map((h) => (
-                  <li key={h}>{h}</li>
-                ))}
+                {product.highlights?.length > 0 ? (
+                  product.highlights.map((h) => <li key={h}>{h}</li>)
+                ) : (
+                  <li>No highlights listed.</li>
+                )}
               </ul>
             </div>
           </div>
         </section>
 
-        {/* Right: shipping / offers / info */}
+        {/* ---------------- RIGHT INFO BOXES ---------------- */}
         <aside className="space-y-4">
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
             <h3 className="text-sm font-semibold text-emerald-200 mb-2">

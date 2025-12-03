@@ -1,14 +1,19 @@
 // src/pages/LoginPage.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "../context/UserContext";
+import { supabase } from "../lib/supabaseClient";
 
 /* --------------------------------------------
    Reusable Text Input
 --------------------------------------------- */
-function TextField({ id, label, type = "text", value, onChange, error, placeholder }) {
+function TextField({ id, label, type = "text", value, onChange, error }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-slate-200">
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-slate-200 tracking-wide"
+      >
         {label}
       </label>
 
@@ -17,10 +22,11 @@ function TextField({ id, label, type = "text", value, onChange, error, placehold
         type={type}
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
-        className={`w-full rounded-xl border bg-slate-900/70 px-3.5 py-2.5 text-sm text-slate-50 placeholder:text-slate-500 outline-none transition
-        border-slate-700 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/80
-        ${error ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/80" : ""}`}
+        className={`w-full rounded-xl border bg-slate-900/60 px-4 py-2.5 text-sm text-slate-50 outline-none transition
+        border-slate-700/70 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/60
+        placeholder:text-slate-500/80 backdrop-blur-xl
+        ${error ? "border-rose-500 focus:ring-rose-500/70" : ""}`}
+        placeholder={label}
       />
 
       {error && <p className="text-xs text-rose-400">{error}</p>}
@@ -29,14 +35,17 @@ function TextField({ id, label, type = "text", value, onChange, error, placehold
 }
 
 /* --------------------------------------------
-   Password Field With Eye Toggle
+   Password Input with Eye Toggle
 --------------------------------------------- */
 function PasswordField({ id, label, value, onChange, error }) {
   const [show, setShow] = useState(false);
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-slate-200">
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-slate-200 tracking-wide"
+      >
         {label}
       </label>
 
@@ -46,45 +55,19 @@ function PasswordField({ id, label, value, onChange, error }) {
           type={show ? "text" : "password"}
           value={value}
           onChange={onChange}
-          className={`w-full rounded-xl border bg-slate-900/70 px-3.5 py-2.5 pr-10 text-sm text-slate-50 placeholder:text-slate-500 outline-none transition
-          border-slate-700 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/80
-          ${error ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/80" : ""}`}
+          className={`w-full rounded-xl border bg-slate-900/60 px-4 py-2.5 pr-11 text-sm text-slate-50 outline-none transition
+          border-slate-700/70 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/60
+          placeholder:text-slate-500/80 backdrop-blur-xl
+          ${error ? "border-rose-500 focus:ring-rose-500/70" : ""}`}
+          placeholder={label}
         />
 
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute inset-y-0 right-2 flex items-center px-2 text-slate-400 hover:text-slate-100"
-          aria-label={show ? "Hide password" : "Show password"}
+          className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 text-lg"
         >
-          {show ? (
-            // eye-off icon
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C7 20 3 16 2 12c.46-1.84 1.52-3.55 3.06-5.06M9.88 9.88A3 3 0 0 0 12 15a3 3 0 0 0 2.12-5.12M1 1l22 22" />
-            </svg>
-          ) : (
-            // eye icon
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          )}
+          {show ? "🙈" : "👁️"}
         </button>
       </div>
 
@@ -94,474 +77,179 @@ function PasswordField({ id, label, value, onChange, error }) {
 }
 
 /* --------------------------------------------
-   Checkbox
---------------------------------------------- */
-function CheckboxField({ id, checked, onChange, label }) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-slate-300">
-      <input
-        type="checkbox"
-        id={id}
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-violet-500"
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-/* --------------------------------------------
-   Simple Social Buttons (dummy handlers)
---------------------------------------------- */
-function SocialButton({ variant, label, children, onClick }) {
-  const base =
-    "inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition";
-
-  const variants = {
-    google: "bg-white text-slate-900 hover:bg-slate-200",
-    apple: "bg-slate-800 text-white hover:bg-slate-700",
-  };
-
-  return (
-    <button
-      type="button"
-      className={base + " " + (variants[variant] || "")}
-      onClick={onClick}
-    >
-      {children}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-/* --------------------------------------------
    MAIN LOGIN PAGE
 --------------------------------------------- */
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useUser();
 
-  // mode: "login" | "resetEmail" | "resetOtp"
-  const [mode, setMode] = useState("login");
-
-  // Login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Reset password state
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetOtpInput, setResetOtpInput] = useState("");
-  const [resetGeneratedOtp, setResetGeneratedOtp] = useState("");
-  const [resetNewPassword, setResetNewPassword] = useState("");
-  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [resetErrors, setResetErrors] = useState({});
-  const [resetLoading, setResetLoading] = useState(false);
+  const validate = () => {
+    const e = {};
+    if (!email) e.email = "Email is required.";
+    else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = "Enter valid email.";
 
-  // Hardcoded admin credentials
-  const ADMIN_EMAIL = "admin@sevasanjeevani.com";
-  const ADMIN_PASS = "Admin@123";
+    if (!password) e.password = "Password is required.";
 
-  /* ---------------- LOGIN LOGIC ---------------- */
-
-  const validateLogin = () => {
-    const errs = {};
-
-    if (!email) errs.email = "Email is required.";
-    else if (!/^\S+@\S+\.\S+$/.test(email))
-      errs.email = "Enter a valid email address.";
-
-    if (!password) errs.password = "Password is required.";
-
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    if (!validateLogin()) return;
+  const handleSubmit = async (evt) => {
+    evt.preventDefault();
+    if (!validate()) return;
 
     setLoading(true);
+    try {
+      const loginResult = await login({ email, password });
 
-    setTimeout(() => {
-      setLoading(false);
-
-      // 1) ADMIN LOGIN
-      if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
-        const adminUser = {
-          email: ADMIN_EMAIL,
-          name: "Admin",
-          role: "admin",
-        };
-        localStorage.setItem("currentUser", JSON.stringify(adminUser));
-        alert("Admin logged in");
-        navigate("/admin");
-        return;
+      let userId = loginResult?.user?.id || loginResult?.session?.user?.id;
+      if (!userId) {
+        const getUserRes = await supabase.auth.getUser();
+        userId = getUserRes?.data?.user?.id;
       }
+      if (!userId) throw new Error("Unable to determine user id after login");
 
-      // 2) USER LOGIN (from localStorage)
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, display_name, phone")
+        .eq("id", userId)
+        .single();
 
-      const foundUser = users.find(
-        (u) => u.email === email && u.password === password
-      );
+      if (profileError) throw profileError;
 
-      if (!foundUser) {
-        alert("Invalid email or password. Please sign up first or try again.");
-        return;
-      }
+      const fullName = profile?.display_name || "";
+      const firstName =
+        fullName.trim().split(" ")[0] || email.split("@")[0] || "User";
 
-      const currentUser = {
-        ...foundUser,
-        role: "user",
+      const userData = {
+        id: userId,
+        email,
+        firstName,
+        fullName,
+        role: profile?.role || "customer",
       };
+      localStorage.setItem("currentUser", JSON.stringify(userData));
 
-      localStorage.setItem("currentUser", JSON.stringify(currentUser));
-
-      alert("Welcome back, " + (foundUser.firstName || foundUser.email) + "!");
-      navigate("/shop");
-    }, 800);
-  };
-
-  /* ---------------- FORGOT PASSWORD FLOW ---------------- */
-
-  const handleForgotClick = () => {
-    setMode("resetEmail");
-    setResetEmail("");
-    setResetOtpInput("");
-    setResetGeneratedOtp("");
-    setResetNewPassword("");
-    setResetConfirmPassword("");
-    setResetErrors({});
-  };
-
-  const handleBackToLogin = () => {
-    setMode("login");
-    setErrors({});
-    setResetErrors({});
-  };
-
-  const handleResetEmailSubmit = (e) => {
-    e.preventDefault();
-    const errs = {};
-
-    if (!resetEmail) {
-      errs.resetEmail = "Email is required.";
-    } else if (!/^\S+@\S+\.\S+$/.test(resetEmail)) {
-      errs.resetEmail = "Enter a valid email address.";
+      if (profile?.role === "admin") navigate("/admin");
+      else navigate("/shop");
+    } catch (err) {
+      alert(err.message || "Login failed.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setResetErrors(errs);
-    if (Object.keys(errs).length !== 0) return;
-
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u) => u.email === resetEmail);
-
-    if (!user) {
-      setResetErrors({
-        resetEmail: "No account found with this email.",
-      });
+  const handleResetPassword = async () => {
+    if (!email) {
+      alert("Enter your email first.");
       return;
     }
 
-    // Generate 6-digit OTP
-    const otpNumber = Math.floor(100000 + Math.random() * 900000);
-    const otp = String(otpNumber);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "http://localhost:3000/reset",
+    });
 
-    setResetGeneratedOtp(otp);
-    setResetOtpInput("");
-    setResetNewPassword("");
-    setResetConfirmPassword("");
-
-    alert("Your OTP code is: " + otp + " (demo only, not sent by email)");
-    setMode("resetOtp");
+    if (error) alert(error.message);
+    else alert("Password reset link sent to your email.");
   };
-
-  const handleResetOtpSubmit = (e) => {
-    e.preventDefault();
-    const errs = {};
-
-    if (!resetOtpInput) {
-      errs.resetOtpInput = "OTP is required.";
-    } else if (resetOtpInput !== resetGeneratedOtp) {
-      errs.resetOtpInput = "Incorrect OTP. Please check and try again.";
-    }
-
-    if (!resetNewPassword) {
-      errs.resetNewPassword = "New password is required.";
-    }
-    if (!resetConfirmPassword) {
-      errs.resetConfirmPassword = "Please re-enter the new password.";
-    } else if (
-      resetNewPassword &&
-      resetConfirmPassword &&
-      resetNewPassword !== resetConfirmPassword
-    ) {
-      errs.resetConfirmPassword = "Passwords do not match.";
-    }
-
-    setResetErrors(errs);
-    if (Object.keys(errs).length !== 0) return;
-
-    setResetLoading(true);
-
-    setTimeout(() => {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const updated = users.map((u) =>
-        u.email === resetEmail ? { ...u, password: resetNewPassword } : u
-      );
-      localStorage.setItem("users", JSON.stringify(updated));
-
-      setResetLoading(false);
-      alert("Password has been reset successfully. Please log in.");
-
-      setEmail(resetEmail);
-      setPassword("");
-      setMode("login");
-    }, 800);
-  };
-
-  /* ---------------- RENDER ---------------- */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-violet-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-5xl bg-slate-950/80 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col md:flex-row">
-        {/* -------- Left Branding Panel -------- */}
-        <div className="relative md:w-[45%] bg-gradient-to-br from-violet-700 via-slate-900 to-slate-950">
-          <div className="absolute inset-0 bg-[url('https://images.pexels.com/photos/2101187/pexels-photo-2101187.jpeg')] bg-cover bg-center opacity-40" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-violet-900 flex items-center justify-center px-4">
+      <div className="relative w-full max-w-5xl">
+        {/* Soft glow behind card */}
+        <div className="pointer-events-none absolute -inset-10 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/20 to-emerald-400/20 blur-3xl opacity-70" />
 
-          <div className="relative p-6 flex flex-col h-full justify-between">
-            <div className="flex justify-between items-center">
-              <h1 className="text-white text-lg tracking-[0.2em] font-semibold">
-                AMU
-              </h1>
-
-              <button
-                className="text-xs bg-white/10 px-3 py-1.5 rounded-full text-white backdrop-blur-md border border-white/20"
-                type="button"
-                onClick={() => navigate("/")}
-              >
-                ← Back to website
-              </button>
-            </div>
-
-            <div>
-              <h2 className="text-white text-2xl font-semibold leading-tight">
+        {/* Card */}
+        <div className="relative w-full rounded-3xl border border-white/10 bg-slate-950/70 shadow-[0_25px_80px_rgba(15,23,42,0.9)] overflow-hidden backdrop-blur-2xl flex flex-col md:flex-row">
+          {/* Left branding panel */}
+          <div className="md:w-5/12 bg-gradient-to-br from-violet-600/80 via-indigo-700/80 to-slate-950/90 px-8 py-9 flex flex-col justify-between">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.25em] text-violet-100/70">
+                SEVA SANJEEVANI
+              </p>
+              <h2 className="text-3xl md:text-4xl font-semibold text-white leading-tight">
                 Welcome back,
+                <br />
+                let&apos;s continue your healing journey.
               </h2>
-              <h2 className="text-white text-2xl font-semibold leading-tight">
-                we missed you.
-              </h2>
+              <p className="text-sm text-violet-100/80 mt-2">
+                Sign in to manage orders, wishlist, and personalized
+                recommendations.
+              </p>
             </div>
 
-            <div className="flex justify-center gap-2 pb-4">
-              <span className="w-5 h-2 bg-white rounded-full" />
-              <span className="w-2 h-2 bg-white/40 rounded-full" />
-              <span className="w-2 h-2 bg-white/40 rounded-full" />
+            <div className="mt-8 space-y-2 text-xs text-violet-100/70">
+              <p>✔ Secure login with Supabase Auth</p>
+              <p>✔ Access your cart from any device</p>
+              <p>✔ Track orders and manage addresses</p>
             </div>
           </div>
-        </div>
 
-        {/* -------- Right Panel (Login / Reset) -------- */}
-        <div className="md:w-[55%] p-10">
-          {mode === "login" && (
-            <>
-              <h1 className="text-3xl font-semibold text-white mb-2">
-                Welcome back
+          {/* Right form panel */}
+          <div className="md:w-7/12 px-8 py-9 md:px-10 md:py-10 bg-slate-950/60">
+            <div className="mb-7">
+              <h1 className="text-2xl md:text-3xl font-semibold text-white">
+                Sign in
               </h1>
-              <p className="text-slate-400 mb-8">
-                Sign in to continue shopping, track your orders and manage your
-                wishlist.
+              <p className="text-slate-400 text-sm mt-2">
+                Enter your credentials to access your account.
               </p>
+            </div>
 
-              <form onSubmit={handleLoginSubmit} className="space-y-5">
-                <TextField
-                  id="email"
-                  label="Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  error={errors.email}
-                />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <TextField
+                id="email"
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={errors.email}
+              />
 
-                <PasswordField
-                  id="password"
-                  label="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  error={errors.password}
-                />
+              <PasswordField
+                id="password"
+                label="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={errors.password}
+              />
 
-                <div className="flex justify-between items-center">
-                  <CheckboxField
-                    id="remember"
-                    label="Remember me"
-                    checked={remember}
-                    onChange={setRemember}
-                  />
-
-                  <button
-                    type="button"
-                    className="text-xs text-violet-300 hover:underline"
-                    onClick={handleForgotClick}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:opacity-90 flex justify-center disabled:opacity-60"
-                >
-                  {loading ? "Signing in..." : "Sign in"}
-                </button>
-
-                {/* Divider */}
-                <div className="flex items-center gap-2 text-slate-500 text-xs">
-                  <div className="flex-1 h-px bg-slate-700" />
-                  Or continue with
-                  <div className="flex-1 h-px bg-slate-700" />
-                </div>
-
-                {/* Social Buttons – demo only */}
-                <div className="grid grid-cols-2 gap-3">
-                  <SocialButton
-                    variant="google"
-                    label="Google"
-                    onClick={() =>
-                      alert("Google sign-in will be connected to backend later.")
-                    }
-                  >
-                    <span className="bg-white text-black rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      G
-                    </span>
-                  </SocialButton>
-
-                  <SocialButton
-                    variant="apple"
-                    label="Apple"
-                    onClick={() =>
-                      alert("Apple sign-in will be connected to backend later.")
-                    }
-                  >
-                    <span></span>
-                  </SocialButton>
-                </div>
-
-                {/* Create account link */}
-                <p className="text-center text-slate-400 text-sm">
-                  New here?{" "}
-                  <button
-                    type="button"
-                    className="text-violet-300 hover:underline"
-                    onClick={() => navigate("/signup")}
-                  >
-                    Create account
-                  </button>
-                </p>
-              </form>
-            </>
-          )}
-
-          {mode === "resetEmail" && (
-            <>
-              <h1 className="text-3xl font-semibold text-white mb-2">
-                Reset password
-              </h1>
-              <p className="text-slate-400 mb-6">
-                Enter the email linked to your account and we&apos;ll send you a
-                one-time code to reset your password.
-              </p>
-
-              <form onSubmit={handleResetEmailSubmit} className="space-y-5">
-                <TextField
-                  id="reset-email"
-                  label="Account email"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  error={resetErrors.resetEmail}
-                />
-
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:opacity-90 flex justify-center"
-                >
-                  Send OTP
-                </button>
-
+              <div className="flex items-center justify-between text-xs">
                 <button
                   type="button"
-                  onClick={handleBackToLogin}
-                  className="w-full text-xs text-slate-400 hover:text-slate-200 hover:underline mt-2"
+                  className="text-violet-300 hover:text-violet-200 hover:underline underline-offset-2"
+                  onClick={handleResetPassword}
                 >
-                  Back to sign in
+                  Forgot password?
                 </button>
-              </form>
-            </>
-          )}
+              </div>
 
-          {mode === "resetOtp" && (
-            <>
-              <h1 className="text-3xl font-semibold text-white mb-2">
-                Verify code
-              </h1>
-              <p className="text-slate-400 mb-6">
-                We sent a one-time code to{" "}
-                <span className="font-medium text-slate-100">
-                  {resetEmail}
-                </span>
-                . Enter the code below and set your new password.
-              </p>
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-emerald-400 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/40 transition
+                hover:shadow-violet-500/60 hover:-translate-y-[1px] disabled:opacity-60 disabled:hover:translate-y-0"
+              >
+                {loading ? "Signing in..." : "Sign in"}
+              </button>
 
-              <form onSubmit={handleResetOtpSubmit} className="space-y-5">
-                <TextField
-                  id="otp"
-                  label="OTP code"
-                  type="text"
-                  value={resetOtpInput}
-                  onChange={(e) => setResetOtpInput(e.target.value)}
-                  error={resetErrors.resetOtpInput}
-                  placeholder="6-digit code"
-                />
-
-                <PasswordField
-                  id="new-password"
-                  label="New password"
-                  value={resetNewPassword}
-                  onChange={(e) => setResetNewPassword(e.target.value)}
-                  error={resetErrors.resetNewPassword}
-                />
-
-                <PasswordField
-                  id="confirm-password"
-                  label="Re-enter new password"
-                  value={resetConfirmPassword}
-                  onChange={(e) => setResetConfirmPassword(e.target.value)}
-                  error={resetErrors.resetConfirmPassword}
-                />
-
-                <button
-                  type="submit"
-                  disabled={resetLoading}
-                  className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:opacity-90 flex justify-center disabled:opacity-60"
-                >
-                  {resetLoading ? "Resetting..." : "Reset password"}
-                </button>
-
+              <p className="pt-3 text-center text-xs text-slate-400">
+                New here?{" "}
                 <button
                   type="button"
-                  onClick={handleBackToLogin}
-                  className="w-full text-xs text-slate-400 hover:text-slate-200 hover:underline mt-2"
+                  className="font-semibold text-violet-300 hover:text-violet-200 hover:underline underline-offset-2"
+                  onClick={() => navigate("/signup")}
                 >
-                  Back to sign in
+                  Create an account
                 </button>
-              </form>
-            </>
-          )}
+              </p>
+            </form>
+          </div>
         </div>
       </div>
     </div>

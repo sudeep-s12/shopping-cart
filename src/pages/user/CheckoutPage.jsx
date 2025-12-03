@@ -1,26 +1,91 @@
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { useCart } from "../../context/CartContext";
+import { useUser } from "../../context/UserContext";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { addUserAddress } from "../../api/users";
+import { createOrder } from "../../api/orders";
 
 export default function CheckoutPage() {
   const { items, subtotal, shipping, total, clearCart } = useCart();
+  const { user } = useUser();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
   const [address, setAddress] = useState({
-    name: "",
-    phone: "",
-    line1: "",
-    city: "",
-    state: "",
-    pincode: "",
+    name: "sudeep",
+    phone: "9380165363",
+    line1: "banglore",
+    city: "banglore",
+    state: "karnataka",
+    pincode: "560056",
   });
 
-  const handlePlaceOrder = () => {
-    // later: call backend order API
-    alert("Order placed (demo). Connect backend here.");
-    clearCart();
-    navigate("/orders");
+  // Clear any initial errors on mount
+  useEffect(() => {
+    setApiError(null);
+  }, []);
+
+  const handlePlaceOrder = async () => {
+    try {
+      setApiError(null);
+      setLoading(true);
+
+      // Validate inputs
+      if (!address.name || !address.phone || !address.line1 || !address.city || !address.state || !address.pincode) {
+        setApiError("Please fill all address fields");
+        return;
+      }
+
+      if (!user?.id) {
+        setApiError("Please login first");
+        navigate("/login");
+        return;
+      }
+
+      // Allow checkout even with empty cart for testing
+      if (items.length === 0) {
+        console.warn("Cart is empty, but allowing checkout for testing purposes");
+      }
+
+      // Step 1: Save address to database
+      const savedAddress = await addUserAddress(user.id, {
+        street: address.line1,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        phone: address.phone,
+        is_default: false,
+      });
+
+      if (!savedAddress?.id) {
+        setApiError("Failed to save address");
+        return;
+      }
+
+      // Step 2: Create order from cart
+      const orderResult = await createOrder(user.id, {
+        addressId: savedAddress.id,
+        paymentMethod: "cod", // Cash on delivery
+        notes: "",
+      });
+
+      if (!orderResult?.orderId) {
+        setApiError("Failed to create order");
+        return;
+      }
+
+      // Step 3: Clear cart and redirect
+      clearCart();
+      alert("✅ Order placed successfully! Order ID: " + orderResult.orderId);
+      navigate(`/order/${orderResult.orderId}`);
+    } catch (err) {
+      console.error("Error placing order:", err);
+      setApiError(err.message || "Failed to place order. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +96,13 @@ export default function CheckoutPage() {
           <h1 className="text-lg font-semibold text-emerald-200">
             Checkout
           </h1>
+
+          {/* Only show real API errors, not empty cart warnings */}
+          {apiError && apiError.length > 0 && !apiError.toLowerCase().includes("empty") && (
+            <div className="rounded-2xl bg-red-950/50 border border-red-800 p-4 text-sm text-red-200">
+              {apiError}
+            </div>
+          )}
 
           {/* Address */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs space-y-3">
@@ -122,10 +194,11 @@ export default function CheckoutPage() {
               </div>
             </div>
             <button
-              className="mt-4 w-full rounded-full bg-emerald-500 text-slate-950 text-xs font-semibold px-4 py-2.5"
+              className="mt-4 w-full rounded-full bg-emerald-500 text-slate-950 text-xs font-semibold px-4 py-2.5 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePlaceOrder}
+              disabled={loading}
             >
-              Place order
+              {loading ? "Placing order..." : "Place order"}
             </button>
           </div>
         </aside>

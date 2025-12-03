@@ -1,40 +1,129 @@
+// src/context/UserContext.js
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-const UserContext = createContext(null);
+const UserContext = createContext();
 
 export function UserProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);    // Supabase session
+  const [user, setUser] = useState(null);          // Authenticated user
+  const [profile, setProfile] = useState(null);    // profiles table data
+  const [loading, setLoading] = useState(true);    // initial loading
 
-  // Load saved user from localStorage on first load
+  // -----------------------------------------------------
+  // 🔹 Load session on mount
+  // -----------------------------------------------------
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("ss_user");
-      if (raw) setUser(JSON.parse(raw));
-    } catch {
-      // ignore parse errors
+    async function loadInitialSession() {
+      const { data, error } = await supabase.auth.getSession();
+      if (!error) {
+        setSession(data.session ?? null);
+        setUser(data.session?.user ?? null);
+      }
+      setLoading(false);
     }
+
+    loadInitialSession();
+
+    // Auth listener (login, logout, refresh)
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Save user whenever it changes
+  // -----------------------------------------------------
+  // 🔹 Load profile (runs every time the user changes)
+  // -----------------------------------------------------
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("ss_user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("ss_user");
+    if (!user) {
+      setProfile(null);
+      return;
     }
+
+    async function loadProfile() {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        setProfile(data);
+      }
+    }
+
+    loadProfile();
   }, [user]);
 
-  const logout = () => {
-    setUser(null);
+  // -----------------------------------------------------
+  // 🔹 Signup
+  // -----------------------------------------------------
+  const signup = async ({ email, password, display_name }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        display_name,
+        role: "customer", // default role
+      });
+    }
+
+    return data;
   };
 
+  // -----------------------------------------------------
+  // 🔹 Login
+  // -----------------------------------------------------
+  const login = async ({ email, password }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    return data;
+  };
+
+  // -----------------------------------------------------
+  // 🔹 Logout
+  // -----------------------------------------------------
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+  };
+
+  // -----------------------------------------------------
+  // 🔹 Context Output
+  // -----------------------------------------------------
   return (
-    <UserContext.Provider value={{ user, setUser, logout }}>
+    <UserContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        loading,
+        signup,
+        login,
+        logout,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
 }
 
-export function useUser() {
-  return useContext(UserContext);
-}
+export const useUser = () => useContext(UserContext);
