@@ -4,9 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
 
-/* --------------------------------------------
-   Reusable Text Input
---------------------------------------------- */
 function TextField({ id, label, type = "text", value, onChange, error }) {
   return (
     <div className="space-y-1.5">
@@ -34,9 +31,6 @@ function TextField({ id, label, type = "text", value, onChange, error }) {
   );
 }
 
-/* --------------------------------------------
-   Password Input with Eye Toggle
---------------------------------------------- */
 function PasswordField({ id, label, value, onChange, error }) {
   const [show, setShow] = useState(false);
 
@@ -76,9 +70,6 @@ function PasswordField({ id, label, value, onChange, error }) {
   );
 }
 
-/* --------------------------------------------
-   MAIN LOGIN PAGE
---------------------------------------------- */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useUser();
@@ -87,6 +78,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const ADMIN_EMAIL = "admin@sevasanjeevani.com"; // default admin email
 
   const validate = () => {
     const e = {};
@@ -105,6 +98,7 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
+      // 1) Sign in with Supabase auth (works for both users and admin)
       const loginResult = await login({ email, password });
 
       let userId = loginResult?.user?.id || loginResult?.session?.user?.id;
@@ -114,6 +108,7 @@ export default function LoginPage() {
       }
       if (!userId) throw new Error("Unable to determine user id after login");
 
+      // 2) Read profile (role, name, etc.) from Supabase
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role, display_name, phone")
@@ -135,8 +130,17 @@ export default function LoginPage() {
       };
       localStorage.setItem("currentUser", JSON.stringify(userData));
 
-      if (profile?.role === "admin") navigate("/admin");
-      else navigate("/shop");
+      // 3) Decide where to redirect:
+      //    if this is the admin account (role === 'admin' AND admin email) → /admin
+      const isAdminAccount =
+        profile?.role === "admin" &&
+        email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+      if (isAdminAccount) {
+        navigate("/admin");
+      } else {
+        navigate("/shop"); // normal user flow
+      }
     } catch (err) {
       alert(err.message || "Login failed.");
     } finally {
@@ -161,10 +165,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-violet-900 flex items-center justify-center px-4">
       <div className="relative w-full max-w-5xl">
-        {/* Soft glow behind card */}
         <div className="pointer-events-none absolute -inset-10 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/20 to-emerald-400/20 blur-3xl opacity-70" />
 
-        {/* Card */}
         <div className="relative w-full rounded-3xl border border-white/10 bg-slate-950/70 shadow-[0_25px_80px_rgba(15,23,42,0.9)] overflow-hidden backdrop-blur-2xl flex flex-col md:flex-row">
           {/* Left branding panel */}
           <div className="md:w-5/12 bg-gradient-to-br from-violet-600/80 via-indigo-700/80 to-slate-950/90 px-8 py-9 flex flex-col justify-between">

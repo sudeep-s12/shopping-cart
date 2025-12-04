@@ -1,10 +1,12 @@
 // src/pages/AdminModules.jsx
+// src/pages/AdminModules.jsx
 import React, { useState, useEffect } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 /* ------------ Helpers for localStorage ------------ */
 const readLS = (key, fallback) => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
@@ -12,19 +14,30 @@ const readLS = (key, fallback) => {
 };
 
 const writeLS = (key, value) => {
+  if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(value));
 };
 
-const pushActivity = (message, type = "info") => {
-  const log = readLS("ss_activityLog", []);
+const pushActivity = async (message, type = "info") => {
   const entry = {
     id: Date.now(),
     message,
     type,
     createdAt: new Date().toISOString(),
   };
+
+  // 1) Save to localStorage (for fast UI)
+  const log = readLS("ss_activityLog", []);
   const updated = [entry, ...log].slice(0, 200);
   writeLS("ss_activityLog", updated);
+
+  // 2) Also save to Supabase activity_log table
+  const { error } = await supabase.from("activity_log").insert({
+    message,
+    type,
+    created_at: entry.createdAt,
+  });
+  if (error) console.error("Error writing activity log:", error);
 };
 
 /* ------------ Dashboard Module ------------ */
@@ -38,19 +51,47 @@ export function DashboardModule() {
   });
 
   useEffect(() => {
-    const products = readLS("ayurvedaProducts", []);
-    const orders = readLS("ss_orders", []);
-    const users = readLS("ss_users", []);
-    const revenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const lowStock = products.filter((p) => p.stock != null && p.stock <= 10);
+    const loadStats = async () => {
+      // products count + low stock
+      const [{ data: lowStockData }, { count: productsCount }] = await Promise.all([
+        supabase
+          .from("products")
+          .select("*")
+          .lte("stock", 10)
+          .not("stock", "is", null),
+        supabase
+          .from("products")
+          .select("*", { count: "exact", head: true }),
+      ]);
 
-    setStats({
-      products: products.length,
-      orders: orders.length,
-      users: users.length,
-      revenue,
-      lowStock,
-    });
+      // orders count + revenue sum
+      const [{ data: orders }, { count: ordersCount }] = await Promise.all([
+        supabase.from("orders").select("total"),
+        supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true }),
+      ]);
+
+      const revenue = (orders || []).reduce(
+        (sum, o) => sum + Number(o.total || 0),
+        0
+      );
+
+      // users count
+      const { count: usersCount } = await supabase
+        .from("profiles") // or your users table
+        .select("*", { count: "exact", head: true });
+
+      setStats({
+        products: productsCount || 0,
+        orders: ordersCount || 0,
+        users: usersCount || 0,
+        revenue,
+        lowStock: lowStockData || [],
+      });
+    };
+
+    loadStats();
   }, []);
 
   return (
@@ -138,34 +179,57 @@ export function CategoriesModule() {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("🌿");
 
+  // Load from Supabase once
   useEffect(() => {
-    setCategories(readLS("ayurvedaCategories", []));
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Error loading categories:", error);
+        return;
+      }
+      setCategories(data || []);
+    };
+
+    fetchCategories();
   }, []);
 
-  useEffect(() => {
-    writeLS("ayurvedaCategories", categories);
-  }, [categories]);
-
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name.trim()) return;
-    const newCat = {
-      id: Date.now(),
-      name: name.trim(),
-      icon: icon || "🌿",
-    };
-    const updated = [...categories, newCat];
-    setCategories(updated);
-    pushActivity(`Created category "${newCat.name}"`, "success");
+
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({ name: name.trim(), icon: icon || "🌿" })
+      .select()
+      .single(); // return inserted row [web:56]
+
+    if (error) {
+      console.error("Error creating category:", error);
+      return;
+    }
+
+    setCategories((prev) => [...prev, data]);
+    pushActivity(`Created category "${data.name}"`, "success");
     setName("");
     setIcon("🌿");
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const c = categories.find((x) => x.id === id);
-    if (!window.confirm(`Delete category "${c?.name}"?`)) return;
-    const updated = categories.filter((cat) => cat.id !== id);
-    setCategories(updated);
-    pushActivity(`Deleted category "${c?.name}"`, "danger");
+    if (!c) return;
+    if (!window.confirm(`Delete category "${c.name}"?`)) return;
+
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting category:", error);
+      return;
+    }
+
+    setCategories((prev) => prev.filter((cat) => cat.id !== id));
+    pushActivity(`Deleted category "${c.name}"`, "danger");
   };
 
   return (
@@ -238,6 +302,7 @@ export function CategoriesModule() {
   );
 }
 
+
 /* ------------ Products Module (with variants & image upload) ------------ */
 export function ProductsModule() {
   const [products, setProducts] = useState([]);
@@ -258,14 +323,30 @@ export function ProductsModule() {
   const [errors, setErrors] = useState({});
   const [search, setSearch] = useState("");
 
+  // Load from Supabase instead of localStorage
   useEffect(() => {
-    setProducts(readLS("ayurvedaProducts", []));
-    setCategories(readLS("ayurvedaCategories", []));
-  }, []);
+    const fetchAll = async () => {
+      const [{ data: prodData, error: prodErr }, { data: catData, error: catErr }] =
+        await Promise.all([
+          supabase
+            .from("products")
+            .select("*")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("categories")
+            .select("*")
+            .order("name", { ascending: true }),
+        ]);
 
-  useEffect(() => {
-    writeLS("ayurvedaProducts", products);
-  }, [products]);
+      if (prodErr) console.error("Error loading products", prodErr);
+      if (catErr) console.error("Error loading categories", catErr);
+
+      setProducts(prodData || []);
+      setCategories(catData || []);
+    };
+
+    fetchAll();
+  }, []);
 
   const updateForm = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -297,7 +378,24 @@ export function ProductsModule() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const resetForm = () => {
+    setEditingId(null);
+    setForm({
+      name: "",
+      brand: "",
+      price: "",
+      category: "",
+      description: "",
+      stock: "",
+      tags: "",
+      variants: "",
+      imageUrl: "",
+      imageData: "",
+    });
+    setErrors({});
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
@@ -312,48 +410,60 @@ export function ProductsModule() {
           .filter(Boolean)
       : [];
 
-    const product = {
-      id: editingId || Date.now(),
+    // Map to Supabase column names (adjust to your table)
+    const base = {
       name: form.name.trim(),
       brand: form.brand.trim(),
       price: Number(form.price),
-      category: form.category,
-      description: form.description.trim(),
+      category_id: form.category, // store selected category id
+      description: form.description.trim() || null,
       stock: form.stock ? Number(form.stock) : null,
       tags,
       variants,
-      imageUrl: form.imageUrl || null,
-      imageData: form.imageData || null,
-      createdAt: editingId
-        ? products.find((p) => p.id === editingId)?.createdAt
-        : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      image_url: form.imageUrl || null,
+      image_data: form.imageData || null,
     };
 
-    let updated;
     if (editingId) {
-      updated = products.map((p) => (p.id === editingId ? product : p));
-      pushActivity(`Updated product "${product.name}"`, "info");
+      // update
+      const { data, error } = await supabase
+        .from("products")
+        .update({ ...base, updated_at: new Date().toISOString() })
+        .eq("id", editingId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error updating product", error);
+        return;
+      }
+
+      setProducts((prev) =>
+        prev.map((p) => (p.id === editingId ? data : p))
+      );
+      pushActivity(`Updated product "${data.name}"`, "info");
     } else {
-      updated = [product, ...products];
-      pushActivity(`Created product "${product.name}"`, "success");
+      // insert
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          ...base,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating product", error);
+        return;
+      }
+
+      setProducts((prev) => [data, ...prev]);
+      pushActivity(`Created product "${data.name}"`, "success");
     }
 
-    setProducts(updated);
-    setForm({
-      name: "",
-      brand: "",
-      price: "",
-      category: "",
-      description: "",
-      stock: "",
-      tags: "",
-      variants: "",
-      imageUrl: "",
-      imageData: "",
-    });
-    setErrors({});
-    setEditingId(null);
+    resetForm();
   };
 
   const handleEdit = (p) => {
@@ -362,38 +472,31 @@ export function ProductsModule() {
       name: p.name,
       brand: p.brand,
       price: String(p.price),
-      category: p.category,
+      category: p.category_id || p.category || "",
       description: p.description || "",
       stock: p.stock != null ? String(p.stock) : "",
       tags: p.tags ? p.tags.join(", ") : "",
       variants: p.variants ? p.variants.join(", ") : "",
-      imageUrl: p.imageUrl || "",
-      imageData: p.imageData || "",
+      imageUrl: p.image_url || p.imageUrl || "",
+      imageData: p.image_data || p.imageData || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const prod = products.find((p) => p.id === id);
     if (!window.confirm(`Delete product "${prod?.name}"?`)) return;
-    const updated = products.filter((p) => p.id !== id);
-    setProducts(updated);
+
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting product", error);
+      return;
+    }
+
+    setProducts((prev) => prev.filter((p) => p.id !== id));
     pushActivity(`Deleted product "${prod?.name}"`, "danger");
     if (editingId === id) {
-      setEditingId(null);
-      setForm({
-        name: "",
-        brand: "",
-        price: "",
-        category: "",
-        description: "",
-        stock: "",
-        tags: "",
-        variants: "",
-        imageUrl: "",
-        imageData: "",
-      });
-      setErrors({});
+      resetForm();
     }
   };
 
@@ -421,22 +524,7 @@ export function ProductsModule() {
           {editingId && (
             <button
               type="button"
-              onClick={() => {
-                setEditingId(null);
-                setForm({
-                  name: "",
-                  brand: "",
-                  price: "",
-                  category: "",
-                  description: "",
-                  stock: "",
-                  tags: "",
-                  variants: "",
-                  imageUrl: "",
-                  imageData: "",
-                });
-                setErrors({});
-              }}
+              onClick={resetForm}
               className="text-[0.7rem] text-emerald-300 hover:text-emerald-100 underline"
             >
               + New product
@@ -542,7 +630,7 @@ export function ProductsModule() {
                 className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-[0.7rem] file:mr-2 file:rounded-lg file:border-none file:bg-emerald-500/80 file:px-3 file:py-1 file:text-[0.7rem] file:font-semibold file:text-slate-950"
               />
               <p className="text-[0.65rem] text-slate-500">
-                Image stored locally in browser (no server).
+                Image will be stored with this product record.
               </p>
             </div>
 
@@ -569,22 +657,7 @@ export function ProductsModule() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={() => {
-                setEditingId(null);
-                setForm({
-                  name: "",
-                  brand: "",
-                  price: "",
-                  category: "",
-                  description: "",
-                  stock: "",
-                  tags: "",
-                  variants: "",
-                  imageUrl: "",
-                  imageData: "",
-                });
-                setErrors({});
-              }}
+              onClick={resetForm}
               className="rounded-xl border border-slate-700 px-4 py-2 text-[0.7rem] text-slate-200 hover:bg-slate-800/80"
             >
               Clear
@@ -631,12 +704,12 @@ export function ProductsModule() {
               >
                 <div className="relative mb-2 h-28 w-full overflow-hidden rounded-xl bg-slate-800">
                   <img
-                    src={p.imageData || p.imageUrl}
+                    src={p.image_data || p.image_url || p.imageData || p.imageUrl}
                     alt={p.name}
                     className="h-full w-full object-cover"
                   />
                   <span className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[0.6rem] font-semibold text-slate-950">
-                    {getCategoryName(p.category) || "Ayurveda"}
+                    {getCategoryName(p.category_id || p.category) || "Ayurveda"}
                   </span>
                 </div>
 
@@ -655,7 +728,7 @@ export function ProductsModule() {
 
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-sm font-semibold text-emerald-300">
-                    ₹{p.price.toFixed(2)}
+                    ₹{Number(p.price).toFixed(2)}
                   </span>
                   {p.stock != null && (
                     <span
@@ -744,17 +817,44 @@ export function OrdersModule() {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
 
+  // Load from Supabase
   useEffect(() => {
-    setOrders(readLS("ss_orders", []));
+    const fetchOrders = async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading orders", error);
+        return;
+      }
+      setOrders(data || []);
+    };
+
+    fetchOrders();
   }, []);
 
-  useEffect(() => {
-    writeLS("ss_orders", orders);
-  }, [orders]);
+  // Update status in Supabase
+  const updateStatus = async (id, status) => {
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-  const updateStatus = (id, status) => {
+    if (error) {
+      console.error("Error updating order status", error);
+      return;
+    }
+
+    const updatedOrder = data;
     const updated = orders.map((o) =>
-      o.id === id ? { ...o, status, updatedAt: new Date().toISOString() } : o
+      o.id === id ? updatedOrder : o
     );
     setOrders(updated);
     pushActivity(`Order #${id} marked as ${status}`, "info");
@@ -802,21 +902,21 @@ export function OrdersModule() {
                     Order #{o.id}
                   </p>
                   <p className="text-[0.65rem] text-slate-400">
-                    {o.userName} • {o.email}
+                    {o.user_name || o.userName} • {o.email}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-emerald-300">
-                    ₹{o.total.toFixed(2)}
+                    ₹{Number(o.total).toFixed(2)}
                   </p>
                   <p className="text-[0.65rem] text-slate-500">
-                    {new Date(o.createdAt).toLocaleString()}
+                    {new Date(o.created_at || o.createdAt).toLocaleString()}
                   </p>
                 </div>
               </div>
 
               <div className="mt-2 space-y-1">
-                {o.items.map((it) => (
+                {(o.items || []).map((it) => (
                   <p
                     key={it.productId + (it.variant || "")}
                     className="flex justify-between text-[0.7rem] text-slate-300"
@@ -879,7 +979,7 @@ function StatusPill({ status }) {
   );
 }
 
-/* ------------ Coupons Module ------------ */
+//* ------------ Coupons Module ------------ */
 export function CouponsModule() {
   const [coupons, setCoupons] = useState([]);
   const [form, setForm] = useState({
@@ -891,34 +991,54 @@ export function CouponsModule() {
     expiresAt: "",
   });
 
+  // Load coupons from Supabase
   useEffect(() => {
-    setCoupons(readLS("ss_coupons", []));
-  }, []);
+    const fetchCoupons = async () => {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-  useEffect(() => {
-    writeLS("ss_coupons", coupons);
-  }, [coupons]);
+      if (error) {
+        console.error("Error loading coupons", error);
+        return;
+      }
+      setCoupons(data || []);
+    };
+
+    fetchCoupons();
+  }, []);
 
   const updateForm = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!form.code.trim() || !form.value) return;
 
-    const coupon = {
-      id: Date.now(),
+    const payload = {
       code: form.code.trim().toUpperCase(),
       type: form.type,
       value: Number(form.value),
-      minAmount: form.minAmount ? Number(form.minAmount) : 0,
+      min_amount: form.minAmount ? Number(form.minAmount) : 0,
       active: form.active,
-      expiresAt: form.expiresAt || null,
-      createdAt: new Date().toISOString(),
+      expires_at: form.expiresAt || null,
+      created_at: new Date().toISOString(),
     };
 
-    setCoupons((prev) => [coupon, ...prev]);
-    pushActivity(`Created coupon ${coupon.code}`, "success");
+    const { data, error } = await supabase
+      .from("coupons")
+      .insert(payload)
+      .select()
+      .single(); // return inserted row [web:56][web:72]
+
+    if (error) {
+      console.error("Error creating coupon", error);
+      return;
+    }
+
+    setCoupons((prev) => [data, ...prev]);
+    pushActivity(`Created coupon ${data.code}`, "success");
     setForm({
       code: "",
       type: "percentage",
@@ -929,18 +1049,37 @@ export function CouponsModule() {
     });
   };
 
-  const toggleActive = (id) => {
-    const updated = coupons.map((c) =>
-      c.id === id ? { ...c, active: !c.active } : c
-    );
-    setCoupons(updated);
+  const toggleActive = async (id) => {
+    const c = coupons.find((x) => x.id === id);
+    if (!c) return;
+
+    const { data, error } = await supabase
+      .from("coupons")
+      .update({ active: !c.active })
+      .eq("id", id)
+      .select()
+      .single(); // [web:51]
+
+    if (error) {
+      console.error("Error toggling coupon", error);
+      return;
+    }
+
+    setCoupons((prev) => prev.map((cp) => (cp.id === id ? data : cp)));
   };
 
-  const removeCoupon = (id) => {
+  const removeCoupon = async (id) => {
     const c = coupons.find((x) => x.id === id);
-    if (!window.confirm(`Delete coupon "${c?.code}"?`)) return;
-    setCoupons(coupons.filter((cp) => cp.id !== id));
-    pushActivity(`Deleted coupon ${c?.code}`, "danger");
+    if (!c || !window.confirm(`Delete coupon "${c.code}"?`)) return;
+
+    const { error } = await supabase.from("coupons").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting coupon", error);
+      return;
+    }
+
+    setCoupons((prev) => prev.filter((cp) => cp.id !== id));
+    pushActivity(`Deleted coupon ${c.code}`, "danger");
   };
 
   return (
@@ -1034,11 +1173,11 @@ export function CouponsModule() {
                     {c.type === "percentage"
                       ? `${c.value}% off`
                       : `₹${c.value} off`}
-                    {c.minAmount
-                      ? ` • min order ₹${c.minAmount}`
+                    {c.min_amount || c.minAmount
+                      ? ` • min order ₹${c.min_amount ?? c.minAmount}`
                       : " • no min"}
-                    {c.expiresAt
-                      ? ` • Expires ${c.expiresAt}`
+                    {c.expires_at || c.expiresAt
+                      ? ` • Expires ${c.expires_at ?? c.expiresAt}`
                       : " • No expiry"}
                   </p>
                 </div>
@@ -1073,22 +1212,43 @@ export function CouponsModule() {
 export function UsersModule() {
   const [users, setUsers] = useState([]);
 
+  // Load users from Supabase (profiles or users table)
   useEffect(() => {
-    setUsers(readLS("ss_users", []));
+    const fetchUsers = async () => {
+      const { data, error } = await supabase
+        .from("profiles") // or "users" if that is your table name
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading users", error);
+        return;
+      }
+      setUsers(data || []);
+    };
+
+    fetchUsers();
   }, []);
 
-  useEffect(() => {
-    writeLS("ss_users", users);
-  }, [users]);
-
-  const toggleBlock = (id) => {
-    const updated = users.map((u) =>
-      u.id === id ? { ...u, blocked: !u.blocked } : u
-    );
-    setUsers(updated);
+  const toggleBlock = async (id) => {
     const u = users.find((x) => x.id === id);
+    if (!u) return;
+
+    const { data, error } = await supabase
+      .from("profiles") // same table as above
+      .update({ blocked: !u.blocked })
+      .eq("id", id)
+      .select()
+      .single(); // return updated row [web:51]
+
+    if (error) {
+      console.error("Error updating user block status", error);
+      return;
+    }
+
+    setUsers((prev) => prev.map((usr) => (usr.id === id ? data : usr)));
     pushActivity(
-      `${u?.email} has been ${u?.blocked ? "unblocked" : "blocked"}`,
+      `${data.email} has been ${data.blocked ? "blocked" : "unblocked"}`,
       "info"
     );
   };
@@ -1098,8 +1258,8 @@ export function UsersModule() {
       <h3 className="text-sm font-semibold text-slate-100">Users</h3>
       {users.length === 0 ? (
         <p className="text-xs text-slate-500">
-          No users yet. When people sign up / log in, store them to
-          <code className="mx-1 rounded bg-slate-800 px-1">ss_users</code>.
+          No users yet. When people sign up / log in, they will appear here
+          from Supabase.
         </p>
       ) : (
         <div className="space-y-2 text-xs">
@@ -1110,15 +1270,17 @@ export function UsersModule() {
             >
               <div>
                 <p className="font-semibold text-slate-100">
-                  {u.name || u.email}
+                  {u.name || u.full_name || u.email}
                 </p>
-                <p className="text-[0.7rem] text-slate-400">{u.email}</p>
+                <p className="text-[0.7rem] text-slate-400">
+                  {u.email}
+                </p>
               </div>
               <div className="flex flex-col items-end gap-1">
                 <span className="text-[0.65rem] text-slate-400">
                   Joined:{" "}
-                  {u.createdAt
-                    ? new Date(u.createdAt).toLocaleDateString()
+                  {u.created_at || u.createdAt
+                    ? new Date(u.created_at || u.createdAt).toLocaleDateString()
                     : "N/A"}
                 </span>
                 <button
@@ -1139,30 +1301,58 @@ export function UsersModule() {
     </div>
   );
 }
-
 /* ------------ Reviews Module ------------ */
 export function ReviewsModule() {
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
-    setReviews(readLS("ss_reviews", []));
+    const fetchReviews = async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading reviews", error);
+        return;
+      }
+      setReviews(data || []);
+    };
+
+    fetchReviews();
   }, []);
 
-  useEffect(() => {
-    writeLS("ss_reviews", reviews);
-  }, [reviews]);
+  const toggleApprove = async (id) => {
+    const r = reviews.find((x) => x.id === id);
+    if (!r) return;
 
-  const toggleApprove = (id) => {
-    const updated = reviews.map((r) =>
-      r.id === id ? { ...r, approved: !r.approved } : r
-    );
-    setReviews(updated);
+    const { data, error } = await supabase
+      .from("reviews")
+      .update({ approved: !r.approved })
+      .eq("id", id)
+      .select()
+      .single(); // [web:51]
+
+    if (error) {
+      console.error("Error updating review", error);
+      return;
+    }
+
+    setReviews((prev) => prev.map((rv) => (rv.id === id ? data : rv)));
   };
 
-  const removeReview = (id) => {
+  const removeReview = async (id) => {
     const r = reviews.find((x) => x.id === id);
-    if (!window.confirm(`Delete review from ${r?.userName}?`)) return;
-    setReviews(reviews.filter((rv) => rv.id !== id));
+    if (!r || !window.confirm(`Delete review from ${r.user_name ?? r.userName}?`))
+      return;
+
+    const { error } = await supabase.from("reviews").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting review", error);
+      return;
+    }
+
+    setReviews((prev) => prev.filter((rv) => rv.id !== id));
   };
 
   return (
@@ -1172,11 +1362,7 @@ export function ReviewsModule() {
       </h3>
       {reviews.length === 0 ? (
         <p className="text-xs text-slate-500">
-          No reviews yet. Store product reviews under
-          <code className="mx-1 rounded bg-slate-800 px-1 text-[0.7rem]">
-            ss_reviews
-          </code>{" "}
-          from the shop.
+          No reviews yet. Product reviews from the shop will appear here.
         </p>
       ) : (
         <div className="space-y-2 text-xs">
@@ -1188,11 +1374,11 @@ export function ReviewsModule() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-slate-100">
-                    {r.userName || "User"} •{" "}
+                    {r.user_name || r.userName || "User"} •{" "}
                     <span className="text-amber-300">{r.rating}★</span>
                   </p>
                   <p className="text-[0.7rem] text-slate-400">
-                    {r.productName}
+                    {r.product_name || r.productName}
                   </p>
                 </div>
                 <button
@@ -1222,24 +1408,68 @@ export function ReviewsModule() {
     </div>
   );
 }
-
 /* ------------ SEO Meta Module ------------ */
 export function SeoModule() {
-  const [meta, setMeta] = useState(
-    readLS("ss_seoMeta", {
-      title: "Seva Sanjeevani • Ayurveda for everyday wellness",
-      description:
-        "Shop Ayurveda products, herbal supplements, oils, and wellness essentials curated by Seva Sanjeevani.",
-      keywords: "ayurveda, herbal, wellness, immunity, seva sanjeevani",
-    })
-  );
+  const [meta, setMeta] = useState({
+    title: "Seva Sanjeevani • Ayurveda for everyday wellness",
+    description:
+      "Shop Ayurveda products, herbal supplements, oils, and wellness essentials curated by Seva Sanjeevani.",
+    keywords: "ayurveda, herbal, wellness, immunity, seva sanjeevani",
+  });
+  const [loaded, setLoaded] = useState(false);
 
   const update = (field, value) =>
     setMeta((prev) => ({ ...prev, [field]: value }));
 
+  // Load from Supabase once
   useEffect(() => {
-    writeLS("ss_seoMeta", meta);
-  }, [meta]);
+    const fetchMeta = async () => {
+      const { data, error } = await supabase
+        .from("seo_meta")
+        .select("*")
+        .eq("id", 1)
+        .single();
+
+      if (error) {
+        console.warn("SEO meta not found, using defaults", error);
+        setLoaded(true);
+        return;
+      }
+
+      setMeta({
+        title: data.title || meta.title,
+        description: data.description || meta.description,
+        keywords: data.keywords || meta.keywords,
+      });
+      setLoaded(true);
+    };
+
+    fetchMeta();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save to Supabase whenever meta changes (after initial load)
+  useEffect(() => {
+    if (!loaded) return;
+    const saveMeta = async () => {
+      const payload = {
+        id: 1,
+        title: meta.title,
+        description: meta.description,
+        keywords: meta.keywords,
+      };
+
+      const { error } = await supabase
+        .from("seo_meta")
+        .upsert(payload, { onConflict: "id" }); // insert or update [web:51]
+
+      if (error) {
+        console.error("Error saving SEO meta", error);
+      }
+    };
+
+    saveMeta();
+  }, [meta, loaded]);
 
   return (
     <div className="space-y-4">
@@ -1275,27 +1505,33 @@ export function SeoModule() {
       </div>
     </div>
   );
+
 }
 
-/* ------------ Bulk Upload Module ------------ */
+/* /* ------------ Bulk Upload Module ------------ */
 export function BulkUploadModule() {
   const [result, setResult] = useState("");
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const text = ev.target.result;
       try {
-        const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+        const lines = text
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+
         if (lines.length <= 1) {
           setResult("CSV appears empty.");
           return;
         }
+
         const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-        const products = readLS("ayurvedaProducts", []);
+        const newProducts = [];
         let added = 0;
 
         for (let i = 1; i < lines.length; i++) {
@@ -1307,30 +1543,46 @@ export function BulkUploadModule() {
 
           if (!row.name) continue;
 
-          const newProd = {
-            id: Date.now() + i,
+          const tags = row.tags
+            ? row.tags.split("|").map((t) => t.trim()).filter(Boolean)
+            : [];
+          const variants = row.variants
+            ? row.variants.split("|").map((v) => v.trim()).filter(Boolean)
+            : [];
+
+          const now = new Date().toISOString();
+
+          newProducts.push({
             name: row.name,
             brand: row.brand || "Seva Sanjeevani",
             price: row.price ? Number(row.price) : 0,
-            category: row.category || "",
+            // stock must never be null because of NOT NULL constraint
+            stock: row.stock ? Number(row.stock) : 0,
             description: row.description || "",
-            stock: row.stock ? Number(row.stock) : null,
-            tags: row.tags
-              ? row.tags.split("|").map((t) => t.trim()).filter(Boolean)
-              : [],
-            variants: row.variants
-              ? row.variants.split("|").map((v) => v.trim()).filter(Boolean)
-              : [],
-            imageUrl: row.imageurl || "",
-            imageData: "",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          products.push(newProd);
+            // category is a uuid FK; keep null for now until you map names -> ids
+            category: null,
+            tags,      // text[]
+            variants,  // text[]
+            image_url: row["image url"] || row.imageurl || row.imageUrl || "",
+            image_data: "",
+            created_at: now,
+            updated_at: now,
+          });
           added++;
         }
 
-        writeLS("ayurvedaProducts", products);
+        if (added === 0) {
+          setResult("No valid product rows found.");
+          return;
+        }
+
+        const { error } = await supabase.from("products").insert(newProducts);
+        if (error) {
+          console.error("Bulk insert error:", error);
+          setResult("Failed to insert into database.");
+          return;
+        }
+
         pushActivity(`Bulk uploaded ${added} product(s) via CSV`, "success");
         setResult(`Successfully added ${added} product(s).`);
       } catch (err) {
@@ -1338,6 +1590,7 @@ export function BulkUploadModule() {
         setResult("Failed to parse CSV file.");
       }
     };
+
     reader.readAsText(file);
   };
 
@@ -1373,12 +1626,31 @@ export function ActivityLogModule() {
   const [log, setLog] = useState([]);
 
   useEffect(() => {
-    setLog(readLS("ss_activityLog", []));
+    const fetchLog = async () => {
+      const { data, error } = await supabase
+        .from("activity_log")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading activity log", error);
+        return;
+      }
+      setLog(data || []);
+    };
+
+    fetchLog();
   }, []);
 
-  const clearLog = () => {
+  const clearLog = async () => {
     if (!window.confirm("Clear entire activity log?")) return;
-    writeLS("ss_activityLog", []);
+
+    const { error } = await supabase.from("activity_log").delete().neq("id", 0);
+    // simple full delete; adjust condition if needed
+    if (error) {
+      console.error("Error clearing activity log", error);
+      return;
+    }
     setLog([]);
   };
 
@@ -1409,12 +1681,18 @@ export function ActivityLogModule() {
               className="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2"
             >
               <span className="mt-[2px] text-[0.65rem]">
-                {e.type === "success" ? "✅" : e.type === "danger" ? "⚠️" : "•"}
+                {e.type === "success"
+                  ? "✅"
+                  : e.type === "danger"
+                  ? "⚠️"
+                  : "•"}
               </span>
               <div>
-                <p className="text-[0.75rem] text-slate-100">{e.message}</p>
+                <p className="text-[0.75rem] text-slate-100">
+                  {e.message}
+                </p>
                 <p className="text-[0.65rem] text-slate-500">
-                  {new Date(e.createdAt).toLocaleString()}
+                  {new Date(e.created_at || e.createdAt).toLocaleString()}
                 </p>
               </div>
             </div>

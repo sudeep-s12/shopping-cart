@@ -1,5 +1,9 @@
 // src/pages/AdminPage.jsx
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
+
+// IMPORT ALL MODULES FROM MERGED INDEX
 import {
   DashboardModule,
   CategoriesModule,
@@ -15,6 +19,7 @@ import {
 
 export default function AdminPage() {
   const [section, setSection] = useState("dashboard");
+  const navigate = useNavigate();
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -28,6 +33,17 @@ export default function AdminPage() {
     { id: "bulk", label: "Bulk Upload", icon: "📥" },
     { id: "activity", label: "Activity Log", icon: "📝" },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Error signing out:", e);
+    } finally {
+      localStorage.removeItem("currentUser");
+      navigate("/login");
+    }
+  };
 
   const renderMain = () => {
     switch (section) {
@@ -57,55 +73,60 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-950 to-emerald-950 text-slate-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-slate-50 flex">
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-slate-800 bg-slate-950/90 p-4">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-400/40">
-            <span className="text-lg">🪔</span>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-emerald-200">
-              Admin Panel
-            </p>
-            <p className="text-sm font-semibold text-slate-50">
-              Seva Sanjeevani
-            </p>
-          </div>
+        <div className="mb-8 p-2">
+          <h1 className="text-xl font-bold text-white">SevaSanjeevani</h1>
+          <p className="text-xs text-slate-400">Admin Panel</p>
         </div>
 
-        <nav className="flex-1 space-y-1 text-xs">
+        <nav className="space-y-1">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setSection(item.id)}
-              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition ${
+              className={`flex items-center w-full px-4 py-2.5 text-sm rounded-lg transition-colors ${
                 section === item.id
-                  ? "bg-emerald-500/15 text-emerald-100 border border-emerald-400/50"
-                  : "text-slate-300 hover:bg-slate-900"
+                  ? "bg-emerald-900/50 text-white"
+                  : "text-slate-300 hover:bg-slate-800/50"
               }`}
             >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="mr-3 text-lg">{item.icon}</span>
+              {item.label}
             </button>
           ))}
         </nav>
 
-        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[0.7rem] text-slate-400">
-          <p className="font-semibold text-slate-100 mb-1">Tip</p>
-          <p>
-            Products saved here will be visible on your user shop page using
-            localStorage key{" "}
-            <code className="rounded bg-slate-800 px-1">ayurvedaProducts</code>.
-          </p>
+        <div className="mt-auto pt-4 border-t border-slate-800">
+          <button className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-slate-300 hover:bg-slate-800/50">
+            <span className="mr-3">⚙️</span>
+            Settings
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-red-400 hover:bg-red-900/20"
+          >
+            <span className="mr-3">🚪</span>
+            Logout
+          </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col">
-        {/* Top bar */}
-        <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-4 py-3 backdrop-blur">
-          <div className="flex items-center gap-2 md:hidden">
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <header className="bg-slate-900/80 border-b border-slate-800 p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <button className="md:hidden p-2 mr-2 rounded-lg hover:bg-slate-800">
+              <span className="text-xl">☰</span>
+            </button>
+            <h2 className="text-lg font-medium">
+              {navItems.find((item) => item.id === section)?.label ||
+                "Dashboard"}
+            </h2>
+          </div>
+
+          <div className="flex items-center space-x-4">
             <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs">
               Admin
             </span>
@@ -121,28 +142,9 @@ export default function AdminPage() {
               ))}
             </select>
           </div>
-
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-              ADMIN • {section.toUpperCase()}
-            </p>
-            <p className="text-sm text-slate-200">
-              Manage Seva Sanjeevani Ayurveda catalogue & operations
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col text-right text-[0.7rem] text-slate-400">
-              <span className="text-slate-200">Admin</span>
-              <span>admin@sevasanjeevani.com</span>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-[0.8rem]">
-              SS
-            </div>
-          </div>
         </header>
 
-        {/* Content scroll area */}
+        {/* Actual Module Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
           {renderMain()}
         </div>
