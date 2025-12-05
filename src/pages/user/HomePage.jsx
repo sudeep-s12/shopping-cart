@@ -7,7 +7,7 @@ import ProductCard from "../../components/ProductCard";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
-// Demo categories (same)
+// Demo categories
 const demoCategories = [
   { id: "immunity", label: "Immunity", emoji: "🛡" },
   { id: "stress-sleep", label: "Stress & Sleep", emoji: "😴" },
@@ -18,24 +18,61 @@ const demoCategories = [
 ];
 
 export default function HomePage() {
-  const [products, setProducts] = useState([]);
+  const [bestsellers, setBestsellers] = useState([]);
+  const [newArrivals, setNewArrivals] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ---------------------------------------
-  // FETCH PRODUCTS FROM SUPABASE
-  // ---------------------------------------
+  // --------------------------------------------------------
+  // FETCH PRODUCTS + ORDER COUNTS TO DETERMINE BESTSELLERS
+  // --------------------------------------------------------
   useEffect(() => {
     async function loadProducts() {
-      const { data, error } = await supabase
-        .from("items")
-        .select("id, name, brand, price, mrp, discount, rating, image_url")
-        .limit(8); // fetch first 8 for homepage rows
+      setLoading(true);
 
-      if (error) {
-        console.error("Error loading products:", error);
+      // Load all products
+      const { data: products, error: prodErr } = await supabase
+        .from("products")
+        .select("id, name, brand, price, created_at, image_url, image_data");
+
+      if (prodErr) {
+        console.error("Error loading products:", prodErr);
+        setLoading(false);
+        return;
       }
 
-      setProducts(data || []);
+      // Load all orders (to calculate bestsellers)
+      const { data: orders, error: orderErr } = await supabase
+        .from("orders")
+        .select("items");
+
+      if (orderErr) {
+        console.error("Error loading orders:", orderErr);
+        setLoading(false);
+        return;
+      }
+
+      // Count items ordered
+      const countMap = {};
+
+      orders?.forEach((order) => {
+        order.items?.forEach((item) => {
+          if (!countMap[item.productId]) countMap[item.productId] = 0;
+          countMap[item.productId] += item.qty;
+        });
+      });
+
+      // Sort products by ordered count (descending)
+      const topBestsellers = [...products]
+        .sort((a, b) => (countMap[b.id] || 0) - (countMap[a.id] || 0))
+        .slice(0, 4);
+
+      // Sort by created_at for New Arrivals
+      const latestProducts = [...products]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 4);
+
+      setBestsellers(topBestsellers);
+      setNewArrivals(latestProducts);
       setLoading(false);
     }
 
@@ -48,9 +85,7 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-10">
 
-        {/* ---------------------------------- */}
         {/* HERO BANNER */}
-        {/* ---------------------------------- */}
         <section className="grid md:grid-cols-[1.6fr_1fr] gap-5 items-center">
           <div className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-emerald-400/10 to-amber-300/10 border border-emerald-400/30 p-6 sm:p-8 shadow-[0_22px_60px_rgba(0,0,0,0.8)]">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200 mb-3">
@@ -107,9 +142,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ---------------------------------- */}
         {/* CATEGORY GRID */}
-        {/* ---------------------------------- */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-emerald-200">
@@ -142,21 +175,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ---------------------------------- */}
-        {/* PRODUCT ROWS (FROM SUPABASE) */}
-        {/* ---------------------------------- */}
+        {/* BESTSELLERS + NEW ARRIVALS */}
         <section className="space-y-6">
-          <Row
-            title="Bestsellers in Ayurveda"
-            loading={loading}
-            products={products}
-          />
-          <Row
-            title="New arrivals"
-            loading={loading}
-            products={products}
-          />
+          <Row title="Bestsellers in Ayurveda" loading={loading} products={bestsellers} />
+          <Row title="New arrivals" loading={loading} products={newArrivals} />
         </section>
+
       </main>
 
       <Footer />
@@ -165,7 +189,7 @@ export default function HomePage() {
 }
 
 /* ----------------------------------
-   ROW COMPONENT FOR PRODUCTS
+   ROW COMPONENT
 ---------------------------------- */
 function Row({ title, products, loading }) {
   return (
@@ -181,7 +205,6 @@ function Row({ title, products, loading }) {
         </Link>
       </div>
 
-      {/* Loading state */}
       {loading ? (
         <p className="text-xs text-slate-400">Loading products…</p>
       ) : products.length === 0 ? (
@@ -193,7 +216,7 @@ function Row({ title, products, loading }) {
               key={p.id}
               product={{
                 ...p,
-                image: p.image_url, // match your ProductCard prop
+                image: p.image_data || p.image_url, // Fallback image
               }}
             />
           ))}

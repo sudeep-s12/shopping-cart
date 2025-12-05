@@ -1,3 +1,4 @@
+
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { useCart } from "../../context/CartContext";
@@ -8,55 +9,65 @@ import { addUserAddress } from "../../api/users";
 import { createOrder } from "../../api/orders";
 
 export default function CheckoutPage() {
-  const { items, subtotal, shipping, total, clearCart } = useCart();
+  const {
+    items,
+    subtotal,
+    shipping,
+    total,
+    discount,
+    appliedCoupon,
+    clearCart
+  } = useCart();
+
   const { user } = useUser();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
+
+  // Payment state
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+
   const [address, setAddress] = useState({
-    name: "sudeep",
-    phone: "9380165363",
-    line1: "banglore",
-    city: "banglore",
-    state: "karnataka",
-    pincode: "560056",
+    name: "",
+    phone: "",
+    line1: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
 
-  // Clear any initial errors on mount
   useEffect(() => {
     setApiError(null);
   }, []);
 
+  // -------------------------------------------------------------------
+  // PLACE ORDER
+  // -------------------------------------------------------------------
   const handlePlaceOrder = async () => {
     try {
-      setApiError(null);
       setLoading(true);
 
-      // Validate inputs
-      if (!address.name || !address.phone || !address.line1 || !address.city || !address.state || !address.pincode) {
-        setApiError("Please fill all address fields");
-        return;
-      }
-
       if (!user?.id) {
-        setApiError("Please login first");
         navigate("/login");
         return;
       }
 
-      // Allow checkout even with empty cart for testing
-      if (items.length === 0) {
-        console.warn("Cart is empty, but allowing checkout for testing purposes");
+      // Validate address
+      if (!address.name || !address.phone || !address.line1 ||
+          !address.city || !address.state || !address.pincode) {
+        setApiError("Please fill all address fields");
+        return;
       }
 
-      // Step 1: Save address to database
+      // Save address
       const savedAddress = await addUserAddress(user.id, {
         street: address.line1,
         city: address.city,
         state: address.state,
         pincode: address.pincode,
         phone: address.phone,
-        is_default: false,
+        is_default: true
       });
 
       if (!savedAddress?.id) {
@@ -64,11 +75,12 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Step 2: Create order from cart
+      // Create order
       const orderResult = await createOrder(user.id, {
         addressId: savedAddress.id,
-        paymentMethod: "cod", // Cash on delivery
-        notes: "",
+        paymentMethod: paymentMethod,  // <-- COD or UPI
+        coupon: appliedCoupon?.code || null,
+        discount: discount || 0,
       });
 
       if (!orderResult?.orderId) {
@@ -76,13 +88,11 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Step 3: Clear cart and redirect
       clearCart();
-      alert("✅ Order placed successfully! Order ID: " + orderResult.orderId);
       navigate(`/order/${orderResult.orderId}`);
+
     } catch (err) {
-      console.error("Error placing order:", err);
-      setApiError(err.message || "Failed to place order. Please try again.");
+      setApiError(err.message || "Failed to place order");
     } finally {
       setLoading(false);
     }
@@ -91,130 +101,136 @@ export default function CheckoutPage() {
   return (
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
-      <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <section className="space-y-4">
-          <h1 className="text-lg font-semibold text-emerald-200">
-            Checkout
-          </h1>
 
-          {/* Only show real API errors, not empty cart warnings */}
-          {apiError && apiError.length > 0 && !apiError.toLowerCase().includes("empty") && (
-            <div className="rounded-2xl bg-red-950/50 border border-red-800 p-4 text-sm text-red-200">
+      <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[2fr_1fr]">
+
+        {/* ADDRESS SECTION */}
+        <section className="space-y-4">
+          <h1 className="text-lg font-semibold text-emerald-200">Checkout</h1>
+
+          {apiError && (
+            <div className="rounded-xl bg-red-900/40 border border-red-700 p-3 text-sm text-red-200">
               {apiError}
             </div>
           )}
 
-          {/* Address */}
-          <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs space-y-3">
-            <h2 className="text-sm font-semibold text-emerald-200">
-              Delivery address
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Input
-                label="Full name"
-                value={address.name}
-                onChange={(e) =>
-                  setAddress((a) => ({ ...a, name: e.target.value }))
-                }
-              />
-              <Input
-                label="Phone number"
-                value={address.phone}
-                onChange={(e) =>
-                  setAddress((a) => ({ ...a, phone: e.target.value }))
-                }
-              />
-            </div>
-            <Input
-              label="Address line"
-              value={address.line1}
-              onChange={(e) =>
-                setAddress((a) => ({ ...a, line1: e.target.value }))
-              }
-            />
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Input
-                label="City"
-                value={address.city}
-                onChange={(e) =>
-                  setAddress((a) => ({ ...a, city: e.target.value }))
-                }
-              />
-              <Input
-                label="State"
-                value={address.state}
-                onChange={(e) =>
-                  setAddress((a) => ({ ...a, state: e.target.value }))
-                }
-              />
-              <Input
-                label="Pincode"
-                value={address.pincode}
-                onChange={(e) =>
-                  setAddress((a) => ({ ...a, pincode: e.target.value }))
-                }
-              />
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-3">
+            <h2 className="text-sm text-emerald-200 font-semibold">Delivery address</h2>
+
+            <Input label="Full Name" value={address.name}
+                   onChange={(e) => setAddress(a => ({ ...a, name: e.target.value }))} />
+
+            <Input label="Phone" value={address.phone}
+                   onChange={(e) => setAddress(a => ({ ...a, phone: e.target.value }))} />
+
+            <Input label="Address" value={address.line1}
+                   onChange={(e) => setAddress(a => ({ ...a, line1: e.target.value }))} />
+
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="City" value={address.city}
+                     onChange={(e) => setAddress(a => ({ ...a, city: e.target.value }))} />
+
+              <Input label="State" value={address.state}
+                     onChange={(e) => setAddress(a => ({ ...a, state: e.target.value }))} />
+
+              <Input label="Pincode" value={address.pincode}
+                     onChange={(e) => setAddress(a => ({ ...a, pincode: e.target.value }))} />
             </div>
           </div>
 
-          {/* Payment */}
-          <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs space-y-2">
-            <h2 className="text-sm font-semibold text-emerald-200">
-              Payment method
-            </h2>
-            <label className="flex items-center gap-2">
-              <input type="radio" defaultChecked name="payment" />
+          {/* PAYMENT OPTIONS */}
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-3">
+            <h2 className="text-sm text-emerald-200 font-semibold">Payment method</h2>
+
+            {/* COD */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="payment"
+                value="cod"
+                checked={paymentMethod === "cod"}
+                onChange={() => setPaymentMethod("cod")}
+              />
               <span>Cash on delivery (COD)</span>
             </label>
-            <label className="flex items-center gap-2 text-slate-500">
-              <input type="radio" disabled name="payment" />
-              <span>Online payment (coming soon)</span>
+
+            {/* UPI */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="payment"
+                value="upi"
+                checked={paymentMethod === "upi"}
+                onChange={() => setPaymentMethod("upi")}
+              />
+              <span>UPI Payment (GPay / PhonePe / Paytm)</span>
             </label>
+
+            {paymentMethod === "upi" && (
+              <div className="p-3 mt-2 rounded-xl bg-slate-800 border border-slate-700 text-[12px] space-y-2">
+                <p className="text-slate-300">Send payment to this UPI ID:</p>
+                <p className="text-emerald-400 font-semibold text-sm">
+                  9380165363@ybl
+                </p>
+                <p className="text-slate-400 text-[11px]">
+                  After sending the payment, click <b>Place order</b>.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Summary */}
-        <aside className="space-y-3">
-          <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
-            <h2 className="text-sm font-semibold text-emerald-200 mb-2">
-              Order summary
-            </h2>
-            <div className="space-y-1 text-slate-300">
-              <div className="flex justify-between">
-                <span>Items ({items.length})</span>
-                <span>₹{subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Delivery</span>
-                <span>{shipping === 0 ? "Free" : `₹${shipping}`}</span>
-              </div>
-              <div className="border-t border-slate-700 mt-2 pt-2 flex justify-between font-semibold text-emerald-300">
-                <span>Order total</span>
-                <span>₹{total.toFixed(2)}</span>
-              </div>
+        {/* ORDER SUMMARY */}
+        <aside>
+          <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-2">
+            <h2 className="text-sm text-emerald-200 font-semibold mb-2">Order summary</h2>
+
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>₹{subtotal.toFixed(2)}</span>
             </div>
+
+            <div className="flex justify-between">
+              <span>Delivery</span>
+              <span>{shipping ? `₹${shipping}` : "Free"}</span>
+            </div>
+
+            {discount > 0 && (
+              <div className="flex justify-between text-emerald-300">
+                <span>Discount ({appliedCoupon?.code})</span>
+                <span>-₹{discount.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="border-t border-slate-700 pt-2 flex justify-between text-emerald-300 font-semibold">
+              <span>Total</span>
+              <span>₹{total.toFixed(2)}</span>
+            </div>
+
             <button
-              className="mt-4 w-full rounded-full bg-emerald-500 text-slate-950 text-xs font-semibold px-4 py-2.5 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePlaceOrder}
               disabled={loading}
+              className="mt-3 w-full bg-emerald-500 rounded-full text-slate-900 text-xs font-semibold py-2.5"
             >
               {loading ? "Placing order..." : "Place order"}
             </button>
           </div>
         </aside>
       </main>
+
       <Footer />
     </div>
   );
 }
 
+// Input component
 function Input({ label, ...props }) {
   return (
     <div className="space-y-1">
       <label className="text-[11px] text-slate-300">{label}</label>
       <input
         {...props}
-        className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-100 outline-none focus:border-emerald-400"
+        className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs focus:border-emerald-400"
       />
     </div>
   );

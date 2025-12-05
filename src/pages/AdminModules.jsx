@@ -39,7 +39,6 @@ const pushActivity = async (message, type = "info") => {
   });
   if (error) console.error("Error writing activity log:", error);
 };
-
 /* ------------ Dashboard Module ------------ */
 export function DashboardModule() {
   const [stats, setStats] = useState({
@@ -52,36 +51,48 @@ export function DashboardModule() {
 
   useEffect(() => {
     const loadStats = async () => {
-      // products count + low stock
-      const [{ data: lowStockData }, { count: productsCount }] = await Promise.all([
-        supabase
-          .from("products")
-          .select("*")
-          .lte("stock", 10)
-          .not("stock", "is", null),
-        supabase
-          .from("products")
-          .select("*", { count: "exact", head: true }),
-      ]);
+      /* ----------------------------------------
+         PRODUCTS COUNT + LOW STOCK PRODUCTS
+      ---------------------------------------- */
+      const [{ data: lowStockData }, { count: productsCount }] =
+        await Promise.all([
+          supabase
+            .from("products")
+            .select("*")
+            .lte("stock", 10)
+            .not("stock", "is", null),
+          supabase
+            .from("products")
+            .select("*", { count: "exact", head: true }),
+        ]);
 
-      // orders count + revenue sum
-      const [{ data: orders }, { count: ordersCount }] = await Promise.all([
-        supabase.from("orders").select("total"),
-        supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true }),
-      ]);
+      /* ----------------------------------------
+         ORDERS COUNT + TOTAL REVENUE
+      ---------------------------------------- */
+      const [{ data: orders }, { count: ordersCount }] =
+        await Promise.all([
+          supabase.from("orders").select("total_amount"), // ✅ correct field
+          supabase
+            .from("orders")
+            .select("*", { count: "exact", head: true }),
+        ]);
 
+      // Calculate revenue using total_amount
       const revenue = (orders || []).reduce(
-        (sum, o) => sum + Number(o.total || 0),
+        (sum, o) => sum + Number(o.total_amount || 0), // ✅ FIXED
         0
       );
 
-      // users count
+      /* ----------------------------------------
+         USERS COUNT
+      ---------------------------------------- */
       const { count: usersCount } = await supabase
-        .from("profiles") // or your users table
+        .from("profiles")
         .select("*", { count: "exact", head: true });
 
+      /* ----------------------------------------
+         UPDATE UI STATS
+      ---------------------------------------- */
       setStats({
         products: productsCount || 0,
         orders: ordersCount || 0,
@@ -155,6 +166,7 @@ export function DashboardModule() {
   );
 }
 
+/* ------------ Stat Card Component ------------ */
 function StatCard({ label, value, accent }) {
   const accentMap = {
     emerald: "from-emerald-400/70 to-emerald-500/40",
@@ -162,6 +174,7 @@ function StatCard({ label, value, accent }) {
     sky: "from-sky-400/70 to-sky-500/40",
     violet: "from-violet-400/70 to-violet-500/40",
   };
+
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 shadow-lg">
       <p className="text-xs text-slate-400">{label}</p>
@@ -172,59 +185,71 @@ function StatCard({ label, value, accent }) {
     </div>
   );
 }
-
-/* ------------ Categories Module ------------ */
 export function CategoriesModule() {
   const [categories, setCategories] = useState([]);
   const [name, setName] = useState("");
-  const [icon, setIcon] = useState("🌿");
+  const [emoji, setEmoji] = useState("🌿"); // using 'emoji' because table has emoji
 
-  // Load from Supabase once
+  // Load categories
   useEffect(() => {
     const fetchCategories = async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
-        .order("created_at", { ascending: true });
+        .select("*");
 
       if (error) {
         console.error("Error loading categories:", error);
         return;
       }
+
       setCategories(data || []);
     };
 
     fetchCategories();
   }, []);
 
+  // Add category
   const handleAdd = async () => {
     if (!name.trim()) return;
 
+    const newCategory = {
+      id: crypto.randomUUID(),     // because id is TEXT + NOT NULL
+      name: name.trim(),
+      emoji: emoji,                // table has "emoji"
+      icon: emoji,                 // optional: also fill icon if needed
+    };
+
     const { data, error } = await supabase
       .from("categories")
-      .insert({ name: name.trim(), icon: icon || "🌿" })
+      .insert(newCategory)
       .select()
-      .single(); // return inserted row [web:56]
+      .single();
 
     if (error) {
       console.error("Error creating category:", error);
+      alert("Failed to add category.");
       return;
     }
 
     setCategories((prev) => [...prev, data]);
     pushActivity(`Created category "${data.name}"`, "success");
+
     setName("");
-    setIcon("🌿");
+    setEmoji("🌿");
   };
 
+  // Delete category
   const handleDelete = async (id) => {
     const c = categories.find((x) => x.id === id);
     if (!c) return;
+
     if (!window.confirm(`Delete category "${c.name}"?`)) return;
 
     const { error } = await supabase.from("categories").delete().eq("id", id);
+
     if (error) {
       console.error("Error deleting category:", error);
+      alert("Failed to delete category.");
       return;
     }
 
@@ -234,29 +259,33 @@ export function CategoriesModule() {
 
   return (
     <div className="space-y-4">
+
+      {/* Add Category */}
       <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
         <h3 className="mb-3 text-sm font-semibold text-slate-100">
           Add new category
         </h3>
+
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+
+          {/* Category name */}
           <div className="space-y-1">
             <label className="text-[0.7rem] text-slate-400">Category name</label>
             <input
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/60"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
               placeholder="Immunity Boosters"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
+          {/* Emoji */}
           <div className="space-y-1">
-            <label className="text-[0.7rem] text-slate-400">
-              Icon (emoji)
-            </label>
+            <label className="text-[0.7rem] text-slate-400">Icon / Emoji</label>
             <input
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/60"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
               maxLength={2}
             />
           </div>
@@ -264,16 +293,18 @@ export function CategoriesModule() {
 
         <button
           onClick={handleAdd}
-          className="mt-3 rounded-xl bg-gradient-to-r from-emerald-500 to-amber-300 px-4 py-2 text-xs font-semibold text-slate-900 shadow-md hover:opacity-90"
+          className="mt-3 rounded-xl bg-gradient-to-r from-emerald-500 to-amber-300 px-4 py-2 text-xs font-semibold text-slate-900"
         >
           Add category
         </button>
       </div>
 
+      {/* Existing categories */}
       <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
         <h3 className="mb-2 text-sm font-semibold text-slate-100">
           Existing categories
         </h3>
+
         {categories.length === 0 ? (
           <p className="text-xs text-slate-500">
             No categories yet. Add your first one above.
@@ -285,8 +316,9 @@ export function CategoriesModule() {
                 key={c.id}
                 className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1"
               >
-                <span>{c.icon}</span>
+                <span>{c.emoji}</span>
                 <span>{c.name}</span>
+
                 <button
                   onClick={() => handleDelete(c.id)}
                   className="text-rose-400 hover:text-rose-300 text-[0.65rem]"
@@ -298,9 +330,11 @@ export function CategoriesModule() {
           </div>
         )}
       </div>
+
     </div>
   );
 }
+
 
 
 /* ------------ Products Module (with variants & image upload) ------------ */
@@ -1207,60 +1241,40 @@ export function CouponsModule() {
     </div>
   );
 }
-
-/* ------------ Users Module ------------ */
 export function UsersModule() {
   const [users, setUsers] = useState([]);
 
-  // Load users from Supabase (profiles or users table)
   useEffect(() => {
     const fetchUsers = async () => {
       const { data, error } = await supabase
-        .from("profiles") // or "users" if that is your table name
+        .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error loading users", error);
+        console.error("Error loading users:", error);
         return;
       }
-      setUsers(data || []);
+
+      const cleaned = data.map((u) => ({
+        ...u,
+        display_name:
+          u.display_name ||
+          (u.email ? u.email.split("@")[0] : "Unknown User"),
+      }));
+
+      setUsers(cleaned);
     };
 
     fetchUsers();
   }, []);
 
-  const toggleBlock = async (id) => {
-    const u = users.find((x) => x.id === id);
-    if (!u) return;
-
-    const { data, error } = await supabase
-      .from("profiles") // same table as above
-      .update({ blocked: !u.blocked })
-      .eq("id", id)
-      .select()
-      .single(); // return updated row [web:51]
-
-    if (error) {
-      console.error("Error updating user block status", error);
-      return;
-    }
-
-    setUsers((prev) => prev.map((usr) => (usr.id === id ? data : usr)));
-    pushActivity(
-      `${data.email} has been ${data.blocked ? "blocked" : "unblocked"}`,
-      "info"
-    );
-  };
-
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-slate-100">Users</h3>
+
       {users.length === 0 ? (
-        <p className="text-xs text-slate-500">
-          No users yet. When people sign up / log in, they will appear here
-          from Supabase.
-        </p>
+        <p className="text-xs text-slate-500">No users found</p>
       ) : (
         <div className="space-y-2 text-xs">
           {users.map((u) => (
@@ -1270,29 +1284,22 @@ export function UsersModule() {
             >
               <div>
                 <p className="font-semibold text-slate-100">
-                  {u.name || u.full_name || u.email}
+                  {u.display_name}
                 </p>
-                <p className="text-[0.7rem] text-slate-400">
-                  {u.email}
-                </p>
+
+                <p className="text-[0.7rem] text-slate-400">{u.email}</p>
               </div>
+
               <div className="flex flex-col items-end gap-1">
                 <span className="text-[0.65rem] text-slate-400">
                   Joined:{" "}
-                  {u.created_at || u.createdAt
-                    ? new Date(u.created_at || u.createdAt).toLocaleDateString()
+                  {u.created_at
+                    ? new Date(u.created_at).toLocaleDateString()
                     : "N/A"}
                 </span>
-                <button
-                  onClick={() => toggleBlock(u.id)}
-                  className={`rounded-full px-2 py-0.5 text-[0.65rem] ${
-                    u.blocked
-                      ? "bg-rose-500/20 text-rose-200"
-                      : "bg-emerald-500/20 text-emerald-200"
-                  }`}
-                >
-                  {u.blocked ? "Blocked" : "Active"}
-                </button>
+                <span className="rounded-full bg-emerald-500/20 text-emerald-200 px-2 py-0.5 text-[0.65rem]">
+                  Active
+                </span>
               </div>
             </div>
           ))}
@@ -1301,6 +1308,7 @@ export function UsersModule() {
     </div>
   );
 }
+
 /* ------------ Reviews Module ------------ */
 export function ReviewsModule() {
   const [reviews, setReviews] = useState([]);
@@ -1507,8 +1515,7 @@ export function SeoModule() {
   );
 
 }
-
-/* /* ------------ Bulk Upload Module ------------ */
+/* ------------ Bulk Upload Module ------------ */
 export function BulkUploadModule() {
   const [result, setResult] = useState("");
 
@@ -1519,6 +1526,7 @@ export function BulkUploadModule() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const text = ev.target.result;
+
       try {
         const lines = text
           .split("\n")
@@ -1530,13 +1538,35 @@ export function BulkUploadModule() {
           return;
         }
 
+        // Extract CSV header row
         const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+        // 1️⃣ Load categories from Supabase to map names → IDs
+        const { data: categories, error: catErr } = await supabase
+          .from("categories")
+          .select("id, name");
+
+        if (catErr) {
+          console.error("Category fetch error:", catErr);
+          setResult("Unable to load categories.");
+          return;
+        }
+
+        // Build lookup map → example: "immunity" : "uuid-123"
+        const categoryMap = {};
+        categories.forEach((c) => {
+          categoryMap[c.name.trim().toLowerCase()] = c.id;
+        });
+
         const newProducts = [];
         let added = 0;
 
+        // 2️⃣ Loop through CSV rows
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(",").map((c) => c.trim());
           const row = {};
+
+          // Map each column into an object
           header.forEach((h, idx) => {
             row[h] = cols[idx] || "";
           });
@@ -1546,9 +1576,14 @@ export function BulkUploadModule() {
           const tags = row.tags
             ? row.tags.split("|").map((t) => t.trim()).filter(Boolean)
             : [];
+
           const variants = row.variants
             ? row.variants.split("|").map((v) => v.trim()).filter(Boolean)
             : [];
+
+          // 3️⃣ Convert CSV category name → category_id(UUID)
+          const categoryName = (row.category || "").toLowerCase();
+          const category_id = categoryMap[categoryName] || null;
 
           const now = new Date().toISOString();
 
@@ -1556,18 +1591,22 @@ export function BulkUploadModule() {
             name: row.name,
             brand: row.brand || "Seva Sanjeevani",
             price: row.price ? Number(row.price) : 0,
-            // stock must never be null because of NOT NULL constraint
             stock: row.stock ? Number(row.stock) : 0,
             description: row.description || "",
-            // category is a uuid FK; keep null for now until you map names -> ids
-            category: null,
-            tags,      // text[]
-            variants,  // text[]
-            image_url: row["image url"] || row.imageurl || row.imageUrl || "",
+            category_id, // ✅ FIXED — now using UUID
+            tags,
+            variants,
+            image_url:
+              row["image url"] ||
+              row.imageurl ||
+              row.imageUrl ||
+              "",
             image_data: "",
+
             created_at: now,
             updated_at: now,
           });
+
           added++;
         }
 
@@ -1576,7 +1615,9 @@ export function BulkUploadModule() {
           return;
         }
 
+        // 4️⃣ Insert into Supabase
         const { error } = await supabase.from("products").insert(newProducts);
+
         if (error) {
           console.error("Bulk insert error:", error);
           setResult("Failed to insert into database.");
@@ -1599,20 +1640,24 @@ export function BulkUploadModule() {
       <h3 className="text-sm font-semibold text-slate-100">
         Bulk upload products (CSV)
       </h3>
+
       <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-xs">
         <p className="mb-2 text-slate-400">
           Upload a CSV file with columns like:
         </p>
+
         <pre className="mb-3 rounded-xl bg-slate-900/90 p-2 text-[0.65rem] text-emerald-100 overflow-x-auto">
 name,brand,price,category,description,stock,tags,variants,imageUrl
-Ashwagandha Capsules,Seva Sanjeevani,499,Immunity Boosters,Stress support,100,"immunity|stress","60 capsules|120 capsules",https://...
+Ashwagandha Capsules,Seva Sanjeevani,499,Immunity,Stress support,100,"immunity|stress","60 capsules|120 capsules",https://...
         </pre>
+
         <input
           type="file"
           accept=".csv"
           onChange={handleFile}
           className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-[0.7rem]"
         />
+
         {result && (
           <p className="mt-2 text-[0.7rem] text-emerald-300">{result}</p>
         )}
