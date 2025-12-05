@@ -88,7 +88,7 @@ function SignupPage() {
         {/* Card */}
         <div className="relative w-full rounded-3xl bg-slate-950/80 border border-white/10 shadow-[0_22px_70px_rgba(15,23,42,0.95)] backdrop-blur-2xl overflow-hidden flex flex-col md:flex-row">
           {/* LEFT IMAGE / BRAND PANEL */}
-          <div className="hidden md:flex w-[45%] relative bg-cover bg-center bg-[url('C:\Users\SIH\Desktop\user\shooping-cart\signuplogo.jpeg')]">
+          <div className="hidden md:flex w-[45%] relative bg-cover bg-center bg-[url(signuplogo.jpeg')]">
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-slate-900/95" />
             <div className="relative z-10 p-8 flex flex-col justify-between">
               <div className="space-y-3">
