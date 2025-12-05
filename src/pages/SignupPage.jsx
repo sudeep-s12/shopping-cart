@@ -1,4 +1,5 @@
 // src/pages/SignupPage.jsx
+import signupLogo from "../assets/signuplogo.jpeg";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
@@ -82,19 +83,22 @@ function SignupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 text-slate-100 flex items-center justify-center px-4 py-10">
       <div className="relative w-full max-w-5xl">
-        {/* Glow */}
+
         <div className="pointer-events-none absolute -inset-10 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/25 to-emerald-400/20 blur-3xl opacity-80" />
 
-        {/* Card */}
         <div className="relative w-full rounded-3xl bg-slate-950/80 border border-white/10 shadow-[0_22px_70px_rgba(15,23,42,0.95)] backdrop-blur-2xl overflow-hidden flex flex-col md:flex-row">
+
           {/* LEFT IMAGE / BRAND PANEL */}
-          <div className="hidden md:flex w-[45%] relative bg-cover bg-center bg-[url(signuplogo.jpeg')]">
+          <div
+            className="hidden md:flex w-[45%] relative bg-cover bg-center"
+            style={{ backgroundImage: `url(${signupLogo})` }}
+          >
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-slate-900/95" />
             <div className="relative z-10 p-8 flex flex-col justify-between">
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.25em] text-violet-100/80">
                   SEVA SANJEEVANI
-                </p>  
+                </p>
                 <h2 className="text-3xl font-semibold text-white leading-tight">
                   Begin your wellness
                   <br />
@@ -116,12 +120,12 @@ function SignupPage() {
 
           {/* RIGHT FORM PANEL */}
           <div className="w-full md:w-[55%] p-8 sm:p-10">
+
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-2xl sm:text-3xl font-semibold">
                 Create an account
               </h1>
 
-              {/* Back to login button */}
               <button
                 type="button"
                 onClick={() => navigate("/login")}
@@ -143,6 +147,7 @@ function SignupPage() {
             </p>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
+              
               {/* FIRST + LAST NAME */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -296,12 +301,10 @@ function SignupPage() {
                 </label>
               </div>
 
-              {/* SUBMIT */}
               <button className="mt-2 w-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-emerald-400 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 hover:-translate-y-[1px] transition">
                 Create account
               </button>
 
-              {/* Social buttons (UI only) */}
               <div className="flex items-center gap-4 my-4">
                 <div className="flex-1 h-px bg-slate-700" />
                 <span className="text-xs text-slate-400">
