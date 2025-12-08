@@ -33,22 +33,50 @@ export default function ProductListPage() {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from("items")
-        .select("id, name, brand, price, mrp, discount, image_url, image_data, rating, category, created_at");
+      try {
+        // If filtering by category name, first get the category ID
+        let categoryIdToFilter = null;
+        
+        if (categoryId !== "all") {
+          const { data: categoryData, error: catError } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("name", categoryId)
+            .single();
 
-      if (categoryId !== "all") {
-        query = query.eq("category", categoryId);
-      }
+          if (catError) {
+            console.error("Category lookup error:", catError);
+          } else if (categoryData) {
+            categoryIdToFilter = categoryData.id;
+          }
+        }
 
-      const { data, error } = await query;
+        // Fetch products with category join for display
+        let query = supabase
+          .from("items")
+          .select(`
+            id, name, brand, price, mrp, discount, 
+            image_url, image_data, rating, category_id, created_at,
+            categories:category_id (id, name, emoji)
+          `);
 
-      if (error) {
-        console.error("Supabase error:", error);
-        setError("Failed to load products.");
-      } else {
-        setProducts(data);
-        setFiltered(data);
+        // Filter by category_id if we found one
+        if (categoryIdToFilter) {
+          query = query.eq("category_id", categoryIdToFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Supabase error:", error);
+          setError("Failed to load products.");
+        } else {
+          setProducts(data || []);
+          setFiltered(data || []);
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setError("An unexpected error occurred.");
       }
 
       setLoading(false);

@@ -263,23 +263,44 @@ export function ProductsModule() {
           </div>
 
           {/* Image Upload */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[0.7rem] text-slate-400">Upload Image</label>
-              <input type="file" accept="image/*"
-                onChange={handleImageUpload}
-                className="w-full text-xs" />
-            </div>
+          <div>
+            <label className="text-[0.7rem] text-slate-400 mb-2 flex items-center justify-between">
+              <span>{editingId ? "Change Image" : "Product Image"}</span>
+              {editingId && form.imageUrl && (
+                <span className="text-emerald-400 text-[0.65rem]">✓ Current image loaded</span>
+              )}
+            </label>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[0.65rem] text-slate-500 block mb-1">Upload New Image</label>
+                <input type="file" accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full text-xs bg-slate-900 border border-slate-700 rounded-lg p-2
+                             file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0
+                             file:text-xs file:bg-emerald-500 file:text-white
+                             hover:file:bg-emerald-600 cursor-pointer" />
+              </div>
 
-            <Field label="Image URL" error={errors.imageUrl}
-              value={form.imageUrl}
-              onChange={(e) => updateForm("imageUrl", e.target.value)} />
+              <Field label="Or paste URL" error={errors.imageUrl}
+                value={form.imageUrl}
+                onChange={(e) => updateForm("imageUrl", e.target.value)} />
+            </div>
           </div>
 
           {/* Image Preview */}
           {form.imageUrl && (
             <div className="rounded-lg bg-slate-800 p-3 flex flex-col gap-2">
-              <p className="text-[0.7rem] text-slate-400">Preview</p>
+              <p className="text-[0.7rem] text-slate-400 flex items-center justify-between">
+                <span>Image Preview</span>
+                <button
+                  type="button"
+                  onClick={() => updateForm("imageUrl", "")}
+                  className="text-[0.65rem] text-rose-400 hover:text-rose-300"
+                >
+                  Remove image
+                </button>
+              </p>
               <div className="h-40 rounded-lg overflow-hidden bg-slate-900 border border-slate-700">
                 <img
                   src={normalizeImageUrl(form.imageUrl)}
