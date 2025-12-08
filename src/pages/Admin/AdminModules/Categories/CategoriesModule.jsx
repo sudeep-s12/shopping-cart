@@ -12,13 +12,22 @@ export function CategoriesModule() {
     const fetchCats = async () => {
       const { data, error } = await supabase.from("categories").select("*");
 
-      if (!error) setCategories(data || []);
+      if (!error) {
+        const clean = (data || []).filter(
+          (c) => c.name?.toLowerCase() !== "powers"
+        );
+        setCategories(clean);
+      }
     };
     fetchCats();
   }, []);
 
   const handleAdd = async () => {
     if (!name.trim()) return;
+    if (name.trim().toLowerCase() === "powers") {
+      alert("Category 'Powers' is not allowed.");
+      return;
+    }
 
     const newCat = {
       id: crypto.randomUUID(),

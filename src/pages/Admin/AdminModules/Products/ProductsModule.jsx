@@ -276,6 +276,23 @@ export function ProductsModule() {
               onChange={(e) => updateForm("imageUrl", e.target.value)} />
           </div>
 
+          {/* Image Preview */}
+          {form.imageUrl && (
+            <div className="rounded-lg bg-slate-800 p-3 flex flex-col gap-2">
+              <p className="text-[0.7rem] text-slate-400">Preview</p>
+              <div className="h-40 rounded-lg overflow-hidden bg-slate-900 border border-slate-700">
+                <img
+                  src={normalizeImageUrl(form.imageUrl)}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "/fallback-product.png";
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 justify-end">
             <button onClick={reset} type="button"
               className="px-4 py-2 border rounded-lg text-xs">

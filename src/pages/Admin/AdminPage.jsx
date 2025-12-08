@@ -13,7 +13,6 @@ import {
   UsersModule,
   ReviewsModule,
   SeoModule,
-  BulkUploadModule,
 } from "./AdminModules";
 
 export default function AdminPage() {
@@ -90,8 +89,6 @@ export default function AdminPage() {
         return <ReviewsModule />;
       case "seo":
         return <SeoModule />;
-      case "bulk":
-        return <BulkUploadModule />;
       default:
         return <DashboardModule />;
     }
@@ -131,13 +128,12 @@ export default function AdminPage() {
     { id: "users", label: "Users", icon: "👥" },
     { id: "reviews", label: "Reviews", icon: "⭐" },
     { id: "seo", label: "SEO Meta", icon: "🔍" },
-    { id: "bulk", label: "Bulk Upload", icon: "📥" },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-slate-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-slate-50 flex fade-in-up">
       {/* SIDEBAR */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-slate-800 bg-slate-950/90 p-4">
+      <aside className="hidden md:flex w-64 flex-col border-r border-slate-800 bg-slate-950/90 p-4 glass-panel card-hover">
         <div className="mb-8 p-2">
           <h1 className="text-xl font-bold text-white">SevaSanjeevani</h1>
           <p className="text-xs text-slate-400">Admin Panel</p>
@@ -148,10 +144,10 @@ export default function AdminPage() {
             <button
               key={item.id}
               onClick={() => setSection(item.id)}
-              className={`flex items-center w-full px-4 py-2.5 text-sm rounded-lg transition-colors ${
+              className={`flex items-center w-full px-4 py-2.5 text-sm rounded-lg transition-colors card-hover ${
                 section === item.id
-                  ? "bg-emerald-900/50 text-white"
-                  : "text-slate-300 hover:bg-slate-800/50"
+                    ? "bg-emerald-900/50 text-white border border-emerald-500/30"
+                    : "text-slate-300 hover:bg-slate-800/50 border border-transparent"
               }`}
             >
               <span className="mr-3 text-lg">{item.icon}</span>
@@ -163,7 +159,7 @@ export default function AdminPage() {
         <div className="mt-auto pt-4 border-t border-slate-800">
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-red-400 hover:bg-red-900/20"
+            className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-red-400 hover:bg-red-900/20 card-hover"
           >
             <span className="mr-3">🚪</span>
             Logout
@@ -173,7 +169,7 @@ export default function AdminPage() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 overflow-hidden flex flex-col">
-        <header className="bg-slate-900/80 border-b border-slate-800 p-4 flex items-center justify-between">
+        <header className="bg-slate-900/80 border-b border-slate-800 p-4 flex items-center justify-between glass-panel card-hover">
           <div className="flex items-center">
             <button className="md:hidden p-2 mr-2 rounded-lg hover:bg-slate-800">
               <span className="text-xl">☰</span>

@@ -1,6 +1,7 @@
 export default function RatingStars({ rating }) {
-  const full = Math.floor(rating);
-  const hasHalf = rating - full >= 0.5;
+  const safeRating = Number.isFinite(rating) ? rating : 0;
+  const full = Math.floor(safeRating);
+  const hasHalf = safeRating - full >= 0.5;
   const total = 5;
 
   return (
@@ -14,7 +15,7 @@ export default function RatingStars({ rating }) {
           </span>
         );
       })}
-      <span className="text-[11px] text-slate-400 ml-1">{rating.toFixed(1)}</span>
+      <span className="text-[11px] text-slate-400 ml-1">{safeRating.toFixed(1)}</span>
     </div>
   );
 }

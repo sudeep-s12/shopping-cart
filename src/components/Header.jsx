@@ -1,12 +1,15 @@
 // src/components/Header.jsx
-import React from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import logo from "../assets/seva-sanjeevani-logo.png";
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user: contextUser, logout: contextLogout } = useUser();
+
+  const [search, setSearch] = useState("");
 
   // Determine if user is logged in (check both context and localStorage for compatibility)
   let currentUser = contextUser;
@@ -28,6 +31,13 @@ export default function Header() {
     } else {
       window.location.href = "/login";
     }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const q = search.trim();
+    if (!q) return;
+    navigate(`/products/all?q=${encodeURIComponent(q)}`);
   };
 
   const navLinkClass = ({ isActive }) =>
@@ -61,14 +71,25 @@ export default function Header() {
         {/* Search (only on /shop & products pages) */}
         <div className="flex-1 hidden md:flex justify-center">
           <div className="w-full max-w-xl">
-            <div className="flex items-center gap-2 rounded-full bg-slate-900/80 border border-slate-700 px-3 py-1.5">
-              <span className="text-slate-500 text-xs">🔍</span>
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center gap-2 rounded-full bg-slate-900/80 border border-slate-700 px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+            >
+              <button
+                type="submit"
+                className="text-slate-400 hover:text-emerald-300 transition text-sm"
+                aria-label="Search products"
+              >
+                🔍
+              </button>
               <input
                 type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search ayurvedic essentials, herbs, oils..."
                 className="flex-1 bg-transparent border-none outline-none text-xs text-slate-50 placeholder:text-slate-500"
               />
-            </div>
+            </form>
           </div>
         </div>
 

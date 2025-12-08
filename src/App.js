@@ -33,6 +33,7 @@ import OrderDetailPage from "./pages/user/OrderDetailPage";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { UserProvider } from "./context/UserContext";
+import ProductChatbot from "./components/ProductChatbot";
 
 function App() {
   return (
@@ -74,6 +75,7 @@ function App() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <ProductChatbot />
           </Router>
         </WishlistProvider>
       </CartProvider>

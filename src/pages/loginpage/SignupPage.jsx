@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
 import { supabase } from "../../lib/supabaseClient";
 
-// FIXED: asset path (your assets folder is inside src/assets)
-import signupLogo from "../../assets/signuplogo.jpeg";
+// Import the available logo
+import logo from "../../assets/seva-sanjeevani-logo.png";
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -95,7 +95,7 @@ function SignupPage() {
           {/* LEFT IMAGE PANEL */}
           <div
             className="hidden md:flex w-[45%] relative bg-cover bg-center"
-            style={{ backgroundImage: `url(${signupLogo})` }}
+            style={{ backgroundImage: `url(${logo})` }}
           >
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-slate-900/95" />
 

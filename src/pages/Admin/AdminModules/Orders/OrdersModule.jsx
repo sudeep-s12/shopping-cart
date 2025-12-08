@@ -14,32 +14,40 @@ export function OrdersModule() {
   // ---------------------------------------------------------
   useEffect(() => {
     const fetchOrders = async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          id,
-          created_at,
-          order_status,
-          total_amount,
-          user_id,
-          profiles:profiles!orders_user_id_fkey (display_name, email),
-          order_items (
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select(`
             id,
-            quantity,
-            price_at_purchase,
-            discount_at_purchase,
-            item_id,
-            items:item_id (id, name, brand)
-          )
-        `)
-        .order("created_at", { ascending: false });
+            created_at,
+            order_status,
+            total_amount,
+            user_id,
+            payment_method,
+            subtotal,
+            shipping_cost,
+            discount_amount,
+            order_items (
+              id,
+              quantity,
+              price_at_purchase,
+              discount_at_purchase,
+              item_id,
+              items:item_id (id, name, brand)
+            )
+          `)
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error loading orders:", error);
-        return;
+        if (error) {
+          console.error("Error loading orders:", error);
+          return;
+        }
+
+        console.log("Orders fetched:", data?.length || 0);
+        setOrders(data || []);
+      } catch (err) {
+        console.error("Exception loading orders:", err);
       }
-
-      setOrders(data || []);
     };
 
     fetchOrders();
@@ -123,8 +131,7 @@ export function OrdersModule() {
                     Order #{o.id}
                   </p>
                   <p className="text-slate-400 text-[0.7rem]">
-                    {o.profiles?.display_name || "Unknown User"} •{" "}
-                    {o.profiles?.email || "no-email"}
+                    User ID: {o.user_id?.substring(0, 8)}... • {o.payment_method?.toUpperCase() || 'COD'}
                   </p>
                 </div>
 

@@ -100,8 +100,8 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-10">
         {/* HERO BANNER */}
-        <section className="grid md:grid-cols-[1.6fr_1fr] gap-5 items-center">
-          <div className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-emerald-400/10 to-amber-300/10 border border-emerald-400/30 p-6 sm:p-8 shadow-[0_22px_60px_rgba(0,0,0,0.8)]">
+        <section className="grid md:grid-cols-[1.6fr_1fr] gap-5 items-center fade-in-up">
+          <div className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-emerald-400/10 to-amber-300/10 border border-emerald-400/30 p-6 sm:p-8 shadow-[0_22px_60px_rgba(0,0,0,0.8)] pulse-border">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200 mb-3">
               Ayurveda • Daily Rituals
             </p>
@@ -136,8 +136,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="hidden md:block">
-            <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4 h-full flex flex-col justify-between">
+          <div className="hidden md:block fade-in-up" style={{ animationDelay: "0.1s" }}>
+            <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4 h-full flex flex-col justify-between glass-panel card-hover">
               <p className="text-xs text-slate-400 uppercase tracking-[0.2em] mb-2">
                 Highlights
               </p>
@@ -171,14 +171,14 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 fade-in-up" style={{ animationDelay: "0.08s" }}>
             {demoCategories.map((cat) => (
               <Link
                 key={cat.id}
                 to={`/products/${cat.id}`}
                 className="rounded-2xl bg-slate-900/80 border border-slate-800 
                   hover:border-emerald-400/70 hover:bg-slate-900/90 
-                  p-3 flex flex-col items-center gap-2 text-center text-xs transition"
+                  p-3 flex flex-col items-center gap-2 text-center text-xs transition card-hover"
               >
                 <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-lg">
                   {cat.emoji}
@@ -223,7 +223,7 @@ function Row({ title, products, loading }) {
       ) : products.length === 0 ? (
         <p className="text-xs text-slate-500">No products available.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 fade-in-up" style={{ animationDelay: "0.12s" }}>
           {products.map((p) => (
             <ProductCard
               key={p.id}

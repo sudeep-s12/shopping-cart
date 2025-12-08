@@ -9,44 +9,31 @@ import { supabase } from "../lib/supabaseClient";
 export const createOrder = async (userId, orderData) => {
   const {
     addressId,
-    paymentMethod = "razorpay",
+    paymentMethod = "cod",
     notes = "",
+    items = [], // Accept items directly from checkout
+    subtotal = 0,
+    discountAmount = 0,
+    shippingCost = 0,
+    totalAmount = 0,
   } = orderData;
 
-  // Get cart items
-  const { data: cartItems, error: cartError } = await supabase
-    .from("cart")
-    .select(
-      `
-      item_id,
-      quantity,
-      items(id, name, price, mrp, discount, brand, image_url)
-      `
-    )
-    .eq("user_id", userId);
-
-  if (cartError) throw new Error(cartError.message);
-
-  // Allow creating orders even with empty cart (for testing)
-  // In production, you'd want to enforce non-empty carts
-  let subtotal = 0;
-  let discountAmount = 0;
-
-  // Calculate totals if cart has items
-  if (cartItems && cartItems.length > 0) {
-    cartItems.forEach((item) => {
-      const itemPrice = item.items?.price || 0;
-      const itemDiscount = item.items?.discount || 0;
-      const quantity = item.quantity || 1;
-
-      subtotal += itemPrice * quantity;
-      discountAmount += (itemPrice * itemDiscount * quantity) / 100;
-    });
+  // Validate items
+  if (!items || items.length === 0) {
+    throw new Error("Cannot create order with empty cart");
   }
 
-  const tax = subtotal * 0.18; // 18% GST
-  const shipping = subtotal > 500 ? 0 : 50;
-  const totalAmount = subtotal - discountAmount + tax + shipping;
+  // Use provided totals or calculate from items
+  const finalSubtotal = subtotal || items.reduce((sum, item) => {
+    return sum + (item.price * (item.quantity || 1));
+  }, 0);
+
+  const finalDiscount = discountAmount || items.reduce((sum, item) => {
+    return sum + ((item.price * (item.discount || 0) * (item.quantity || 1)) / 100);
+  }, 0);
+
+  const finalShipping = shippingCost !== undefined ? shippingCost : (finalSubtotal > 999 ? 0 : 59);
+  const finalTotal = totalAmount || (finalSubtotal - finalDiscount + finalShipping);
 
   // Create order
   const { data: order, error: orderError } = await supabase
@@ -55,50 +42,46 @@ export const createOrder = async (userId, orderData) => {
       user_id: userId,
       address_id: addressId,
       payment_method: paymentMethod,
-      subtotal,
-      discount_amount: discountAmount,
-      tax_amount: tax,
-      shipping_cost: shipping,
-      total_amount: totalAmount,
-      order_status: "pending_payment",
+      subtotal: finalSubtotal,
+      discount_amount: finalDiscount,
+      tax_amount: 0,
+      shipping_cost: finalShipping,
+      total_amount: finalTotal,
+      order_status: paymentMethod === "cod" ? "confirmed" : "pending_payment",
       notes,
-      created_at: new Date(),
+      created_at: new Date().toISOString(),
     })
     .select()
     .single();
 
-  if (orderError) throw new Error(orderError.message);
-
-  // Add order items (only if cart has items)
-  if (cartItems && cartItems.length > 0) {
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      item_id: item.item_id,
-      quantity: item.quantity,
-      price_at_purchase: item.items?.price,
-      discount_at_purchase: item.items?.discount,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) throw new Error(itemsError.message);
+  if (orderError) {
+    console.error("Order creation error:", orderError);
+    throw new Error(orderError.message);
   }
 
-  // Clear cart
-  const { error: clearError } = await supabase
-    .from("cart")
-    .delete()
-    .eq("user_id", userId);
+  // Add order items
+  const orderItems = items.map((item) => ({
+    order_id: order.id,
+    item_id: item.productId || item.id,
+    quantity: item.quantity || 1,
+    price_at_purchase: item.price,
+    discount_at_purchase: item.discount || 0,
+  }));
 
-  if (clearError) throw new Error(clearError.message);
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .insert(orderItems);
+
+  if (itemsError) {
+    console.error("Order items creation error:", itemsError);
+    throw new Error("Failed to add items to order: " + itemsError.message);
+  }
 
   return {
     orderId: order.id,
-    totalAmount,
-    itemCount: cartItems.length,
-    orderStatus: "pending_payment",
+    totalAmount: finalTotal,
+    itemCount: items.length,
+    orderStatus: order.order_status,
   };
 };
 

@@ -1,7 +1,7 @@
 // src/pages/user/ProductListPage.jsx
 
-import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import ProductCard from "../../components/ProductCard";
@@ -9,6 +9,8 @@ import { supabase } from "../../lib/supabaseClient";
 
 export default function ProductListPage() {
   const { categoryId } = useParams();
+  const [searchParams] = useSearchParams();
+  const searchQuery = useMemo(() => (searchParams.get("q") || "").toLowerCase().trim(), [searchParams]);
 
   const friendlyName =
     categoryId === "all"
@@ -20,6 +22,8 @@ export default function ProductListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState("popular");
+  const [maxPrice, setMaxPrice] = useState(2000);
+  const [minRating, setMinRating] = useState(null);
 
   // ---------------------------
   // FETCH PRODUCTS FROM SUPABASE
@@ -72,8 +76,23 @@ export default function ProductListPage() {
     }
     // default = popular (no change)
 
-    setFiltered(sorted);
-  }, [sortBy, products]);
+    // Apply search filter if present
+    const searched = searchQuery
+      ? sorted.filter((p) =>
+          `${p.name} ${p.brand || ""}`.toLowerCase().includes(searchQuery)
+        )
+      : sorted;
+
+    const priceFiltered = searched.filter((p) =>
+      typeof p.price === "number" ? p.price <= maxPrice : true
+    );
+
+    const ratingFiltered = minRating
+      ? priceFiltered.filter((p) => (p.rating || 0) >= minRating)
+      : priceFiltered;
+
+    setFiltered(ratingFiltered);
+  }, [sortBy, products, searchQuery, maxPrice, minRating]);
 
   return (
     <div className="bg-slate-950 min-h-screen text-slate-50">
@@ -90,15 +109,34 @@ export default function ProductListPage() {
 
             <div className="space-y-2 text-xs text-slate-300">
               <p className="font-semibold text-slate-200">Price</p>
-              <input type="range" min={0} max={2000} className="w-full" />
+              <input
+                type="range"
+                min={0}
+                max={2000}
+                step={50}
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                className="w-full accent-emerald-400"
+              />
+              <p className="text-[11px] text-slate-400">Up to ₹{maxPrice}</p>
 
               <p className="font-semibold mt-3 text-slate-200">Rating</p>
               <div className="space-y-1">
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" /> 4★ & above
+                  <input
+                    type="checkbox"
+                    checked={minRating === 4}
+                    onChange={(e) => setMinRating(e.target.checked ? 4 : null)}
+                  />
+                  4★ & above
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" /> 3★ & above
+                  <input
+                    type="checkbox"
+                    checked={minRating === 3}
+                    onChange={(e) => setMinRating(e.target.checked ? 3 : null)}
+                  />
+                  3★ & above
                 </label>
               </div>
             </div>
