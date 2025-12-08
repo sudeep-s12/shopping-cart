@@ -7,25 +7,30 @@ import ProductCard from "../../components/ProductCard";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
-// Demo categories
-const demoCategories = [
-  { id: "immunity", label: "Immunity", emoji: "🛡" },
-  { id: "stress-sleep", label: "Stress & Sleep", emoji: "😴" },
-  { id: "digestion", label: "Digestion", emoji: "🌿" },
-  { id: "skin-hair", label: "Skin & Hair", emoji: "💆‍♀" },
-  { id: "women", label: "Women’s Health", emoji: "🌸" },
-  { id: "kids", label: "Kids Care", emoji: "🧸" },
-];
-
 export default function HomePage() {
   const [bestsellers, setBestsellers] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadProducts() {
       try {
         setLoading(true);
+
+        // -------------------------
+        // FETCH CATEGORIES
+        // -------------------------
+        const { data: cats, error: catErr } = await supabase
+          .from("categories")
+          .select("id, name, emoji")
+          .order("name", { ascending: true });
+
+        if (catErr) {
+          console.error("Error loading categories:", catErr);
+        } else {
+          setCategories(cats || []);
+        }
 
         // -------------------------
         // FETCH PRODUCTS
@@ -172,18 +177,18 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 fade-in-up" style={{ animationDelay: "0.08s" }}>
-            {demoCategories.map((cat) => (
+            {categories.map((cat) => (
               <Link
                 key={cat.id}
-                to={`/products/${cat.id}`}
+                to={`/products/${cat.name}`}
                 className="rounded-2xl bg-slate-900/80 border border-slate-800 
                   hover:border-emerald-400/70 hover:bg-slate-900/90 
                   p-3 flex flex-col items-center gap-2 text-center text-xs transition card-hover"
               >
                 <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-lg">
-                  {cat.emoji}
+                  {cat.emoji || "📦"}
                 </div>
-                <span className="text-slate-100">{cat.label}</span>
+                <span className="text-slate-100">{cat.name}</span>
               </Link>
             ))}
           </div>
