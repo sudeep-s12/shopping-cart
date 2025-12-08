@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import ProductCard from "../../components/ProductCard";
+import ProductChatbot from "../../components/ProductChatbot";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -202,6 +203,7 @@ export default function HomePage() {
       </main>
 
       <Footer />
+      <ProductChatbot />
     </div>
   );
 }

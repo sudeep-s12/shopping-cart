@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import RatingStars from "../../components/RatingStars";
+import ProductChatbot from "../../components/ProductChatbot";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { supabase } from "../../lib/supabaseClient";
@@ -303,6 +304,7 @@ export default function ProductDetailPage() {
       </main>
 
       <Footer />
+      <ProductChatbot product={product} />
     </div>
   );
 }
