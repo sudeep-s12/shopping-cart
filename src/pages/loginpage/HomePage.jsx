@@ -1,4 +1,4 @@
-// src/pages/user/HomePage.jsx
+// src/pages/loginpage/HomePage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import Header from "../../components/Header";
@@ -148,7 +148,7 @@ export default function HomePage() {
             {demoCategories.map((cat) => (
               <Link
                 key={cat.id}
-                to={/products/${cat.id}}
+                to={`/products/${cat.id}`}
                 className="rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-400/70 hover:bg-slate-900/90 p-3 flex flex-col items-center gap-2 text-center text-xs transition"
               >
                 <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-lg">
@@ -184,6 +184,7 @@ function Row({ title, products }) {
           View more
         </Link>
       </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />

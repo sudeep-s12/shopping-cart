@@ -19,8 +19,6 @@ export default function ProductDetailPage() {
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const inWish = isInWishlist(id);
-
   // ------------------------------
   // FETCH PRODUCT FROM SUPABASE
   // ------------------------------
@@ -37,12 +35,19 @@ export default function ProductDetailPage() {
       }
 
       setProduct(data);
-      setSelectedVariant(data?.variants?.[0] || null);
+      setSelectedVariant(
+        Array.isArray(data?.variants) && data.variants.length > 0
+          ? data.variants[0]
+          : null
+      );
+
       setLoading(false);
     }
 
     loadProduct();
   }, [id]);
+
+  const inWish = isInWishlist(product?.id);
 
   if (loading) {
     return (
@@ -60,6 +65,11 @@ export default function ProductDetailPage() {
     );
   }
 
+  const imageSrc =
+    product.image_url ||
+    product.image_data ||
+    "/fallback-product.png";
+
   return (
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
@@ -72,7 +82,7 @@ export default function ProductDetailPage() {
             <div className="flex-1 flex items-center justify-center">
               <div className="w-full max-w-xs rounded-2xl bg-slate-800 overflow-hidden">
                 <img
-                  src={product.image_url}
+                  src={imageSrc}
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />
@@ -111,7 +121,7 @@ export default function ProductDetailPage() {
               </p>
 
               {/* ------------ Variants ------------- */}
-              {product.variants?.length > 0 && (
+              {Array.isArray(product.variants) && product.variants.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs text-slate-300 mb-1">Choose pack</p>
                   <div className="flex flex-wrap gap-2 text-xs">
@@ -155,7 +165,14 @@ export default function ProductDetailPage() {
                 <button
                   onClick={() =>
                     addToCart(
-                      { ...product, variant: selectedVariant, image: product.image_url },
+                      {
+                        id: product.id,
+                        name: product.name,
+                        brand: product.brand,
+                        price: product.price,
+                        variant: selectedVariant,
+                        image: imageSrc,
+                      },
                       qty
                     )
                   }
@@ -165,7 +182,14 @@ export default function ProductDetailPage() {
                 </button>
 
                 <button
-                  onClick={() => toggleWishlist(product)}
+                  onClick={() =>
+                    toggleWishlist({
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                      image: imageSrc,
+                    })
+                  }
                   className="px-4 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-xs hover:border-emerald-400"
                 >
                   {inWish ? "♥ In wishlist" : "♡ Add to wishlist"}
@@ -190,8 +214,9 @@ export default function ProductDetailPage() {
                 Highlights
               </h2>
               <ul className="list-disc pl-4 space-y-1 text-slate-300">
-                {product.highlights?.length > 0 ? (
-                  product.highlights.map((h) => <li key={h}>{h}</li>)
+                {Array.isArray(product.highlights) &&
+                product.highlights.length > 0 ? (
+                  product.highlights.map((h, i) => <li key={i}>{h}</li>)
                 ) : (
                   <li>No highlights listed.</li>
                 )}

@@ -1,8 +1,10 @@
-// src/pages/LoginPage.jsx
+// src/pages/loginpage/LoginPage.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "../context/UserContext";
-import { supabase } from "../lib/supabaseClient";
+
+// FIXED IMPORT PATHS
+import { useUser } from "../../context/UserContext";
+import { supabase } from "../../lib/supabaseClient";
 
 function TextField({ id, label, type = "text", value, onChange, error }) {
   return (
@@ -72,7 +74,7 @@ function PasswordField({ id, label, value, onChange, error }) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useUser();
+  const { login } = useUser(); // FIXED IMPORT
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,17 +100,20 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      // 1) Sign in with Supabase auth (works for both users and admin)
+      // Sign in with Supabase
       const loginResult = await login({ email, password });
 
       let userId = loginResult?.user?.id || loginResult?.session?.user?.id;
+
+      // fallback if undefined
       if (!userId) {
         const getUserRes = await supabase.auth.getUser();
         userId = getUserRes?.data?.user?.id;
       }
+
       if (!userId) throw new Error("Unable to determine user id after login");
 
-      // 2) Read profile (role, name, etc.) from Supabase
+      // Read user profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role, display_name, phone")
@@ -128,18 +133,18 @@ export default function LoginPage() {
         fullName,
         role: profile?.role || "customer",
       };
+
       localStorage.setItem("currentUser", JSON.stringify(userData));
 
-      // 3) Decide where to redirect:
-      //    if this is the admin account (role === 'admin' AND admin email) → /admin
+      // Redirect logic
       const isAdminAccount =
         profile?.role === "admin" &&
         email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
       if (isAdminAccount) {
-        navigate("/admin");
+        navigate("/admin/dashboard"); // FIXED ROUTE
       } else {
-        navigate("/shop"); // normal user flow
+        navigate("/shop");
       }
     } catch (err) {
       alert(err.message || "Login failed.");

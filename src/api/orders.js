@@ -260,21 +260,27 @@ export const updateOrderStatus = async (
 };
 
 /**
- * CANCEL ORDER
+ * CANCEL ORDER (user-initiated)
+ * We also filter by user_id to prevent cancelling others' orders.
  */
-export const cancelOrder = async (orderId, cancelReason) => {
-  const { data, error } = await supabase
+export const cancelOrder = async (orderId, cancelReason, userId) => {
+  const query = supabase
     .from("orders")
     .update({
       order_status: "cancelled",
       cancel_reason: cancelReason,
       cancelled_at: new Date(),
     })
-    .eq("id", orderId)
-    .select()
-    .single();
+    .eq("id", orderId);
 
-  if (error) throw new Error(error.message);
+  if (userId) {
+    query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query.select().single();
+
+  if (error) throw new Error(error.message || "Failed to cancel order");
+  if (!data) throw new Error("Order not found or not authorized");
   return data;
 };
 

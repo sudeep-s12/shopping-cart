@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -7,22 +8,56 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleAdminLogin = (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
 
-    const adminEmail = "admin@sevasanjeevani.com";
-    const adminPassword = "Admin@123";
+    if (!email || !password) {
+      setErrorMsg("Email and password are required.");
+      return;
+    }
 
-    const isAdmin =
-      email.trim().toLowerCase() === adminEmail.toLowerCase() &&
-      password === adminPassword;
+    try {
+      setLoading(true);
 
-    if (isAdmin) {
-      navigate("/admin");
-    } else {
-      setErrorMsg("Invalid admin email or password.");
+      // 1️⃣ LOGIN USING SUPABASE AUTH
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrorMsg("Invalid email or password.");
+        return;
+      }
+
+      const user = data.user;
+
+      // 2️⃣ FETCH PROFILE TO CHECK ADMIN ROLE
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile || profile.role !== "admin") {
+        setErrorMsg("You are not authorized as admin.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // 3️⃣ SAVE ADMIN FLAG
+      localStorage.setItem("isAdmin", "true");
+
+      // 4️⃣ REDIRECT TO ADMIN DASHBOARD
+      navigate("/admin/dashboard");
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,7 +75,7 @@ export default function AdminLoginPage() {
             <input
               type="email"
               className="mt-1 w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500"
-              placeholder="admin@sevasanjeevani.com"
+              placeholder="admin@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -52,7 +87,7 @@ export default function AdminLoginPage() {
             <input
               type="password"
               className="mt-1 w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500"
-              placeholder="Admin@123"
+              placeholder="Your admin password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
@@ -65,15 +100,16 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
-            className="w-full mt-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 rounded-xl text-sm font-semibold hover:from-violet-400 hover:to-fuchsia-400 transition"
+            disabled={loading}
+            className="w-full mt-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 rounded-xl text-sm font-semibold hover:from-violet-400 hover:to-fuchsia-400 transition disabled:opacity-40"
           >
-            Login as Admin
+            {loading ? "Checking..." : "Login as Admin"}
           </button>
 
           <div className="text-center text-xs text-slate-400 mt-3">
             <button
               type="button"
-              onClick={() => navigate("/user-login")}
+              onClick={() => navigate("/login")}
               className="text-violet-300 hover:underline"
             >
               Back to user login

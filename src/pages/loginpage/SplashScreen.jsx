@@ -1,7 +1,9 @@
-// src/pages/SplashScreen.jsx
+// src/pages/loginpage/SplashScreen.jsx
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import sevaLogo from "../assets/seva-sanjeevani-logo.png";
+
+// FIXED PATH
+import sevaLogo from "../../assets/seva-sanjeevani-logo.png";
 
 export default function SplashScreen() {
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ export default function SplashScreen() {
                           bg-slate-950/90 border border-emerald-200/60
                           logo-float shadow-[0_0_25px_rgba(0,0,0,0.6)]"
             >
-              {/* Perfect circular logo, fully visible */}
+              {/* Perfect circular logo */}
               <img
                 src={sevaLogo}
                 alt="Seva Sanjeevani"

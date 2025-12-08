@@ -1,3 +1,5 @@
+// src/pages/user/CartPage.jsx
+
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { useCart } from "../../context/CartContext";
@@ -25,7 +27,9 @@ export default function CartPage() {
 
   const hasItems = items.length > 0;
 
-  // Load coupons
+  // -------------------------------
+  // Load Active Coupons from DB
+  // -------------------------------
   useEffect(() => {
     async function loadCoupons() {
       const { data } = await supabase
@@ -38,7 +42,9 @@ export default function CartPage() {
     loadCoupons();
   }, []);
 
+  // -------------------------------
   // APPLY COUPON
+  // -------------------------------
   const applyCouponHandler = async () => {
     if (!couponCode.trim()) return alert("Enter a coupon code");
 
@@ -62,7 +68,9 @@ export default function CartPage() {
     alert(`🎉 Coupon applied! ${data.discount}% OFF`);
   };
 
+  // -------------------------------
   // REMOVE COUPON
+  // -------------------------------
   const removeCouponHandler = () => {
     removeDiscount();
     setCouponCode("");
@@ -74,9 +82,9 @@ export default function CartPage() {
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[2fr_1fr]">
 
-        {/* CART ITEMS */}
+        {/* -------------------- CART ITEMS -------------------- */}
         <section>
           <h1 className="text-lg font-semibold text-emerald-200 mb-3">
             Shopping cart
@@ -86,7 +94,7 @@ export default function CartPage() {
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-8 text-center text-sm text-slate-400">
               Your cart is empty.
               <button
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/shop")}
                 className="text-emerald-300 hover:text-emerald-100 underline ml-1"
               >
                 Start shopping
@@ -99,12 +107,21 @@ export default function CartPage() {
                   key={item.id + (item.variant || "")}
                   className="rounded-2xl bg-slate-900/80 border border-slate-800 p-3 flex gap-3 text-xs"
                 >
+                  {/* Product Image */}
                   <div className="w-20 h-20 rounded-xl bg-slate-800 overflow-hidden">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
+                  {/* Product Info */}
                   <div className="flex-1">
-                    <p className="text-[10px] uppercase text-emerald-300">{item.brand}</p>
+                    <p className="text-[10px] uppercase text-emerald-300">
+                      {item.brand}
+                    </p>
+
                     <p className="text-sm font-semibold">{item.name}</p>
 
                     {item.variant && (
@@ -113,6 +130,7 @@ export default function CartPage() {
                       </p>
                     )}
 
+                    {/* Price + Qty */}
                     <div className="mt-2 flex items-center gap-4">
                       <p className="text-sm font-semibold text-emerald-300">
                         ₹{(item.price * item.qty).toFixed(2)}
@@ -120,14 +138,20 @@ export default function CartPage() {
 
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => updateQty(item.id, item.variant, item.qty - 1)}
+                          onClick={() =>
+                            updateQty(item.id, item.variant, item.qty - 1)
+                          }
                           className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center"
                         >
                           -
                         </button>
+
                         <span>{item.qty}</span>
+
                         <button
-                          onClick={() => updateQty(item.id, item.variant, item.qty + 1)}
+                          onClick={() =>
+                            updateQty(item.id, item.variant, item.qty + 1)
+                          }
                           className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center"
                         >
                           +
@@ -135,6 +159,7 @@ export default function CartPage() {
                       </div>
                     </div>
 
+                    {/* Remove */}
                     <button
                       onClick={() => removeFromCart(item.id, item.variant)}
                       className="mt-2 text-[11px] text-rose-400 hover:text-rose-200"
@@ -148,12 +173,13 @@ export default function CartPage() {
           )}
         </section>
 
-        {/* SUMMARY + COUPON */}
+        {/* -------------------- COUPON + SUMMARY -------------------- */}
         <aside className="space-y-3">
-          {/* COUPON */}
+          {/* Coupon Box */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
-
-            <h2 className="text-sm font-semibold text-emerald-200 mb-2">Apply Coupon</h2>
+            <h2 className="text-sm font-semibold text-emerald-200 mb-2">
+              Apply Coupon
+            </h2>
 
             {couponList.length > 0 && (
               <div className="mb-1 text-[10px] text-slate-400">
@@ -206,10 +232,11 @@ export default function CartPage() {
             )}
           </div>
 
-          {/* ORDER SUMMARY */}
+          {/* Order Summary */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs space-y-2">
-
-            <h2 className="text-sm font-semibold text-emerald-200 mb-1">Order summary</h2>
+            <h2 className="text-sm font-semibold text-emerald-200 mb-1">
+              Order summary
+            </h2>
 
             <div className="flex justify-between">
               <span>Items subtotal</span>
@@ -240,7 +267,6 @@ export default function CartPage() {
             >
               Proceed to checkout
             </button>
-
           </div>
         </aside>
       </main>

@@ -1,9 +1,9 @@
-// src/pages/AdminPage.jsx
-import React, { useState } from "react";
+// src/pages/Admin/AdminPage.jsx
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
-// IMPORT ALL MODULES FROM MERGED INDEX
+// IMPORT MODULES (NO ActivityLogModule)
 import {
   DashboardModule,
   CategoriesModule,
@@ -14,37 +14,64 @@ import {
   ReviewsModule,
   SeoModule,
   BulkUploadModule,
-  ActivityLogModule,
 } from "./AdminModules";
 
 export default function AdminPage() {
   const [section, setSection] = useState("dashboard");
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const navigate = useNavigate();
 
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "products", label: "Products", icon: "🧴" },
-    { id: "categories", label: "Categories", icon: "🗂️" },
-    { id: "orders", label: "Orders", icon: "📦" },
-    { id: "coupons", label: "Coupons", icon: "🎟" },
-    { id: "users", label: "Users", icon: "👥" },
-    { id: "reviews", label: "Reviews", icon: "⭐" },
-    { id: "seo", label: "SEO Meta", icon: "🔍" },
-    { id: "bulk", label: "Bulk Upload", icon: "📥" },
-    { id: "activity", label: "Activity Log", icon: "📝" },
-  ];
+  // -----------------------------------------
+  // 🔒 ADMIN AUTH CHECK
+  // -----------------------------------------
+  useEffect(() => {
+    async function checkAdmin() {
+      setLoading(true);
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+
+      if (!session?.user) {
+        navigate("/admin-login");
+        return;
+      }
+
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!profile || profile.role !== "admin") {
+        await supabase.auth.signOut();
+        navigate("/login");
+        return;
+      }
+
+      setIsAdmin(true);
+      setLoading(false);
+    }
+
+    checkAdmin();
+  }, [navigate]);
+
+  // LOGOUT
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.error("Error signing out:", e);
     } finally {
-      localStorage.removeItem("currentUser");
-      navigate("/login");
+      navigate("/admin-login");
     }
   };
 
+  // -----------------------------------------
+  // MODULE HANDLER
+  // -----------------------------------------
   const renderMain = () => {
     switch (section) {
       case "dashboard":
@@ -65,16 +92,51 @@ export default function AdminPage() {
         return <SeoModule />;
       case "bulk":
         return <BulkUploadModule />;
-      case "activity":
-        return <ActivityLogModule />;
       default:
         return <DashboardModule />;
     }
   };
 
+  // -----------------------------------------
+  // LOADING SCREEN
+  // -----------------------------------------
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        <p className="text-sm text-slate-300">Checking admin access…</p>
+      </div>
+    );
+  }
+
+  // -----------------------------------------
+  // UNAUTHORIZED
+  // -----------------------------------------
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-red-400">
+        Unauthorized access
+      </div>
+    );
+  }
+
+  // -----------------------------------------
+  // NAVIGATION ITEMS
+  // -----------------------------------------
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "products", label: "Products", icon: "🧴" },
+    { id: "categories", label: "Categories", icon: "🗂️" },
+    { id: "orders", label: "Orders", icon: "📦" },
+    { id: "coupons", label: "Coupons", icon: "🎟" },
+    { id: "users", label: "Users", icon: "👥" },
+    { id: "reviews", label: "Reviews", icon: "⭐" },
+    { id: "seo", label: "SEO Meta", icon: "🔍" },
+    { id: "bulk", label: "Bulk Upload", icon: "📥" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-slate-50 flex">
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <aside className="hidden md:flex w-64 flex-col border-r border-slate-800 bg-slate-950/90 p-4">
         <div className="mb-8 p-2">
           <h1 className="text-xl font-bold text-white">SevaSanjeevani</h1>
@@ -99,10 +161,6 @@ export default function AdminPage() {
         </nav>
 
         <div className="mt-auto pt-4 border-t border-slate-800">
-          <button className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-slate-300 hover:bg-slate-800/50">
-            <span className="mr-3">⚙️</span>
-            Settings
-          </button>
           <button
             onClick={handleLogout}
             className="flex items-center w-full px-4 py-2.5 text-sm rounded-lg text-red-400 hover:bg-red-900/20"
@@ -113,7 +171,7 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 overflow-hidden flex flex-col">
         <header className="bg-slate-900/80 border-b border-slate-800 p-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -121,30 +179,24 @@ export default function AdminPage() {
               <span className="text-xl">☰</span>
             </button>
             <h2 className="text-lg font-medium">
-              {navItems.find((item) => item.id === section)?.label ||
-                "Dashboard"}
+              {navItems.find((i) => i.id === section)?.label}
             </h2>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs">
-              Admin
-            </span>
-            <select
-              className="rounded-xl border border-slate-700 bg-slate-900/80 px-2 py-1 text-xs"
-              value={section}
-              onChange={(e) => setSection(e.target.value)}
-            >
-              {navItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            className="rounded-xl border border-slate-700 bg-slate-900/80 px-2 py-1 text-xs"
+            value={section}
+            onChange={(e) => setSection(e.target.value)}
+          >
+            {navItems.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </header>
 
-        {/* Actual Module Content */}
+        {/* CONTENT AREA */}
         <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
           {renderMain()}
         </div>

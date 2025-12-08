@@ -1,3 +1,4 @@
+// src/pages/user/CheckoutPage.jsx
 
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
@@ -25,7 +26,6 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
 
-  // Payment state
   const [paymentMethod, setPaymentMethod] = useState("cod");
 
   const [address, setAddress] = useState({
@@ -37,16 +37,18 @@ export default function CheckoutPage() {
     pincode: "",
   });
 
+  // ---------------------- CHECK CART EMPTY ----------------------
   useEffect(() => {
-    setApiError(null);
-  }, []);
+    if (items.length === 0) {
+      navigate("/cart");
+    }
+  }, [items, navigate]);
 
-  // -------------------------------------------------------------------
-  // PLACE ORDER
-  // -------------------------------------------------------------------
+  // ---------------------- PLACE ORDER ----------------------
   const handlePlaceOrder = async () => {
     try {
       setLoading(true);
+      setApiError(null);
 
       if (!user?.id) {
         navigate("/login");
@@ -54,13 +56,19 @@ export default function CheckoutPage() {
       }
 
       // Validate address
-      if (!address.name || !address.phone || !address.line1 ||
-          !address.city || !address.state || !address.pincode) {
+      if (
+        !address.name ||
+        !address.phone ||
+        !address.line1 ||
+        !address.city ||
+        !address.state ||
+        !address.pincode
+      ) {
         setApiError("Please fill all address fields");
         return;
       }
 
-      // Save address
+      // Save user address
       const savedAddress = await addUserAddress(user.id, {
         street: address.line1,
         city: address.city,
@@ -71,20 +79,34 @@ export default function CheckoutPage() {
       });
 
       if (!savedAddress?.id) {
-        setApiError("Failed to save address");
+        setApiError("Failed to save address.");
         return;
       }
 
-      // Create order
-      const orderResult = await createOrder(user.id, {
+      // ---------------------- Prepare Order Payload ----------------------
+      const orderPayload = {
         addressId: savedAddress.id,
-        paymentMethod: paymentMethod,  // <-- COD or UPI
+        paymentMethod,
         coupon: appliedCoupon?.code || null,
-        discount: discount || 0,
-      });
+        discountAmount: discount || 0,
+        subtotal,
+        shippingCost: shipping,
+        totalAmount: total,
+        items: items.map((i) => ({
+          productId: i.id,
+          name: i.name,
+          price: i.price,
+          discount: i.discount || 0,
+          quantity: i.qty || 1,
+          image_url: i.image
+        }))
+      };
+
+      // Create Order
+      const orderResult = await createOrder(user.id, orderPayload);
 
       if (!orderResult?.orderId) {
-        setApiError("Failed to create order");
+        setApiError("Failed to create order.");
         return;
       }
 
@@ -104,7 +126,7 @@ export default function CheckoutPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[2fr_1fr]">
 
-        {/* ADDRESS SECTION */}
+        {/* ---------------------- ADDRESS FORM ---------------------- */}
         <section className="space-y-4">
           <h1 className="text-lg font-semibold text-emerald-200">Checkout</h1>
 
@@ -115,32 +137,66 @@ export default function CheckoutPage() {
           )}
 
           <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-3">
-            <h2 className="text-sm text-emerald-200 font-semibold">Delivery address</h2>
+            <h2 className="text-sm text-emerald-200 font-semibold">
+              Delivery address
+            </h2>
 
-            <Input label="Full Name" value={address.name}
-                   onChange={(e) => setAddress(a => ({ ...a, name: e.target.value }))} />
+            <Input
+              label="Full Name"
+              value={address.name}
+              onChange={(e) =>
+                setAddress((a) => ({ ...a, name: e.target.value }))
+              }
+            />
 
-            <Input label="Phone" value={address.phone}
-                   onChange={(e) => setAddress(a => ({ ...a, phone: e.target.value }))} />
+            <Input
+              label="Phone"
+              value={address.phone}
+              onChange={(e) =>
+                setAddress((a) => ({ ...a, phone: e.target.value }))
+              }
+            />
 
-            <Input label="Address" value={address.line1}
-                   onChange={(e) => setAddress(a => ({ ...a, line1: e.target.value }))} />
+            <Input
+              label="Address"
+              value={address.line1}
+              onChange={(e) =>
+                setAddress((a) => ({ ...a, line1: e.target.value }))
+              }
+            />
 
             <div className="grid grid-cols-3 gap-3">
-              <Input label="City" value={address.city}
-                     onChange={(e) => setAddress(a => ({ ...a, city: e.target.value }))} />
+              <Input
+                label="City"
+                value={address.city}
+                onChange={(e) =>
+                  setAddress((a) => ({ ...a, city: e.target.value }))
+                }
+              />
 
-              <Input label="State" value={address.state}
-                     onChange={(e) => setAddress(a => ({ ...a, state: e.target.value }))} />
+              <Input
+                label="State"
+                value={address.state}
+                onChange={(e) =>
+                  setAddress((a) => ({ ...a, state: e.target.value }))
+                }
+              />
 
-              <Input label="Pincode" value={address.pincode}
-                     onChange={(e) => setAddress(a => ({ ...a, pincode: e.target.value }))} />
+              <Input
+                label="Pincode"
+                value={address.pincode}
+                onChange={(e) =>
+                  setAddress((a) => ({ ...a, pincode: e.target.value }))
+                }
+              />
             </div>
           </div>
 
-          {/* PAYMENT OPTIONS */}
+          {/* ---------------------- PAYMENT OPTIONS ---------------------- */}
           <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-3">
-            <h2 className="text-sm text-emerald-200 font-semibold">Payment method</h2>
+            <h2 className="text-sm text-emerald-200 font-semibold">
+              Payment method
+            </h2>
 
             {/* COD */}
             <label className="flex items-center gap-2 cursor-pointer">
@@ -168,7 +224,7 @@ export default function CheckoutPage() {
 
             {paymentMethod === "upi" && (
               <div className="p-3 mt-2 rounded-xl bg-slate-800 border border-slate-700 text-[12px] space-y-2">
-                <p className="text-slate-300">Send payment to this UPI ID:</p>
+                <p className="text-slate-300">Send payment to:</p>
                 <p className="text-emerald-400 font-semibold text-sm">
                   9380165363@ybl
                 </p>
@@ -180,10 +236,12 @@ export default function CheckoutPage() {
           </div>
         </section>
 
-        {/* ORDER SUMMARY */}
+        {/* ---------------------- ORDER SUMMARY ---------------------- */}
         <aside>
           <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 text-xs space-y-2">
-            <h2 className="text-sm text-emerald-200 font-semibold mb-2">Order summary</h2>
+            <h2 className="text-sm text-emerald-200 font-semibold mb-2">
+              Order summary
+            </h2>
 
             <div className="flex justify-between">
               <span>Subtotal</span>
@@ -223,14 +281,14 @@ export default function CheckoutPage() {
   );
 }
 
-// Input component
+// ---------------------- INPUT COMPONENT ----------------------
 function Input({ label, ...props }) {
   return (
     <div className="space-y-1">
       <label className="text-[11px] text-slate-300">{label}</label>
       <input
         {...props}
-        className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs focus:border-emerald-400"
+        className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs focus:border-emerald-400 outline-none"
       />
     </div>
   );

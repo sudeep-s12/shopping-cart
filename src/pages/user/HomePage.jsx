@@ -22,58 +22,73 @@ export default function HomePage() {
   const [newArrivals, setNewArrivals] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --------------------------------------------------------
-  // FETCH PRODUCTS + ORDER COUNTS TO DETERMINE BESTSELLERS
-  // --------------------------------------------------------
   useEffect(() => {
     async function loadProducts() {
-      setLoading(true);
+      try {
+        setLoading(true);
 
-      // Load all products
-      const { data: products, error: prodErr } = await supabase
-        .from("products")
-        .select("id, name, brand, price, created_at, image_url, image_data");
+        // -------------------------
+        // FETCH PRODUCTS
+        // -------------------------
+        const { data: products, error: prodErr } = await supabase
+          .from("items")
+          .select("id, name, brand, price, created_at, image_url, image_data");
 
-      if (prodErr) {
-        console.error("Error loading products:", prodErr);
-        setLoading(false);
-        return;
-      }
+        if (prodErr) {
+          console.error("Error loading products:", prodErr);
+          setLoading(false);
+          return;
+        }
 
-      // Load all orders (to calculate bestsellers)
-      const { data: orders, error: orderErr } = await supabase
-        .from("orders")
-        .select("items");
+        // -------------------------
+        // FETCH ORDERS (to detect bestsellers)
+        // -------------------------
+        const { data: orders, error: orderErr } = await supabase
+          .from("orders")
+          .select("items");
 
-      if (orderErr) {
-        console.error("Error loading orders:", orderErr);
-        setLoading(false);
-        return;
-      }
+        if (orderErr) {
+          console.error("Error loading orders:", orderErr);
+          setLoading(false);
+          return;
+        }
 
-      // Count items ordered
-      const countMap = {};
+        // -------------------------
+        // COUNT PRODUCT QUANTITIES
+        // -------------------------
+        const countMap = {};
 
-      orders?.forEach((order) => {
-        order.items?.forEach((item) => {
-          if (!countMap[item.productId]) countMap[item.productId] = 0;
-          countMap[item.productId] += item.qty;
+        orders?.forEach((order) => {
+          order?.items?.forEach((item) => {
+            if (!countMap[item.productId]) countMap[item.productId] = 0;
+            countMap[item.productId] += item.qty;
+          });
         });
-      });
 
-      // Sort products by ordered count (descending)
-      const topBestsellers = [...products]
-        .sort((a, b) => (countMap[b.id] || 0) - (countMap[a.id] || 0))
-        .slice(0, 4);
+        // -------------------------
+        // BESTSELLERS = SORT BY QTY
+        // -------------------------
+        const topBestsellers = [...products]
+          .sort((a, b) => (countMap[b.id] || 0) - (countMap[a.id] || 0))
+          .slice(0, 4);
 
-      // Sort by created_at for New Arrivals
-      const latestProducts = [...products]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 4);
+        // -------------------------
+        // NEW ARRIVALS = LATEST CREATED
+        // -------------------------
+        const latestProducts = [...products]
+          .sort(
+            (a, b) =>
+              new Date(b.created_at || 0) - new Date(a.created_at || 0)
+          )
+          .slice(0, 4);
 
-      setBestsellers(topBestsellers);
-      setNewArrivals(latestProducts);
-      setLoading(false);
+        setBestsellers(topBestsellers);
+        setNewArrivals(latestProducts);
+      } catch (err) {
+        console.error("Unexpected error:", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadProducts();
@@ -84,7 +99,6 @@ export default function HomePage() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-10">
-
         {/* HERO BANNER */}
         <section className="grid md:grid-cols-[1.6fr_1fr] gap-5 items-center">
           <div className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-emerald-400/10 to-amber-300/10 border border-emerald-400/30 p-6 sm:p-8 shadow-[0_22px_60px_rgba(0,0,0,0.8)]">
@@ -101,8 +115,8 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-3 text-sm text-emerald-50/80 max-w-lg">
-              Explore curated Ayurveda essentials crafted for immunity, stress
-              relief, better sleep and everyday wellness.
+              Explore curated Ayurveda essentials for immunity, stress relief,
+              better sleep and everyday wellness.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3 text-xs">
@@ -129,10 +143,10 @@ export default function HomePage() {
               </p>
 
               <ul className="space-y-3 text-sm text-slate-200">
-                <li>• 100% ayurvedic formulations</li>
+                <li>• 100% Ayurvedic formulations</li>
                 <li>• Handpicked herbs & classical recipes</li>
-                <li>• Backed by modern quality checks</li>
-                <li>• Crafted for Indian lifestyle & climate</li>
+                <li>• Quality tested ingredients</li>
+                <li>• Made for Indian lifestyle & climate</li>
               </ul>
 
               <p className="text-[11px] text-slate-500 mt-4">
@@ -175,12 +189,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* BESTSELLERS + NEW ARRIVALS */}
+        {/* BESTSELLERS & NEW ARRIVALS */}
         <section className="space-y-6">
           <Row title="Bestsellers in Ayurveda" loading={loading} products={bestsellers} />
           <Row title="New arrivals" loading={loading} products={newArrivals} />
         </section>
-
       </main>
 
       <Footer />
@@ -188,9 +201,9 @@ export default function HomePage() {
   );
 }
 
-/* ----------------------------------
+/* ------------------------------
    ROW COMPONENT
----------------------------------- */
+------------------------------ */
 function Row({ title, products, loading }) {
   return (
     <div>
@@ -216,7 +229,7 @@ function Row({ title, products, loading }) {
               key={p.id}
               product={{
                 ...p,
-                image: p.image_data || p.image_url, // Fallback image
+                image: p.image_url || p.image_data || "/fallback-product.png",
               }}
             />
           ))}

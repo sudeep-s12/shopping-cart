@@ -16,8 +16,10 @@ export default function ProductListPage() {
       : categoryId?.replace("-", " ");
 
   const [products, setProducts] = useState([]);
+  const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState("popular");
 
   // ---------------------------
   // FETCH PRODUCTS FROM SUPABASE
@@ -27,10 +29,12 @@ export default function ProductListPage() {
       setLoading(true);
       setError(null);
 
-      let query = supabase.from("items").select("*");
+      let query = supabase
+        .from("items")
+        .select("id, name, brand, price, mrp, discount, image_url, image_data, rating, category, created_at");
 
       if (categoryId !== "all") {
-        query = query.eq("category_id", categoryId);
+        query = query.eq("category", categoryId);
       }
 
       const { data, error } = await query;
@@ -40,6 +44,7 @@ export default function ProductListPage() {
         setError("Failed to load products.");
       } else {
         setProducts(data);
+        setFiltered(data);
       }
 
       setLoading(false);
@@ -48,11 +53,34 @@ export default function ProductListPage() {
     loadProducts();
   }, [categoryId]);
 
+  // ---------------------------
+  // SORTING LOGIC
+  // ---------------------------
+  useEffect(() => {
+    if (!products) return;
+
+    let sorted = [...products];
+
+    if (sortBy === "low-high") {
+      sorted.sort((a, b) => a.price - b.price);
+    } else if (sortBy === "high-low") {
+      sorted.sort((a, b) => b.price - a.price);
+    } else if (sortBy === "newest") {
+      sorted.sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+    }
+    // default = popular (no change)
+
+    setFiltered(sorted);
+  }, [sortBy, products]);
+
   return (
     <div className="bg-slate-950 min-h-screen text-slate-50">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-[240px_minmax(0,1fr)]">
+        
         {/* ------------------ FILTER SIDEBAR ------------------ */}
         <aside className="space-y-4">
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
@@ -90,11 +118,15 @@ export default function ProductListPage() {
               </p>
             </div>
 
-            <select className="rounded-xl bg-slate-900/80 border border-slate-700 px-3 py-1.5 text-xs">
-              <option>Sort: Popular</option>
-              <option>Price: Low to High</option>
-              <option>Price: High to Low</option>
-              <option>Newest First</option>
+            <select
+              className="rounded-xl bg-slate-900/80 border border-slate-700 px-3 py-1.5 text-xs"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="popular">Sort: Popular</option>
+              <option value="low-high">Price: Low → High</option>
+              <option value="high-low">Price: High → Low</option>
+              <option value="newest">Newest First</option>
             </select>
           </div>
 
@@ -104,12 +136,10 @@ export default function ProductListPage() {
           )}
 
           {/* ------------------ ERROR STATE ------------------ */}
-          {error && (
-            <p className="text-xs text-rose-400 mt-6">{error}</p>
-          )}
+          {error && <p className="text-xs text-rose-400 mt-6">{error}</p>}
 
           {/* ------------------ EMPTY STATE ------------------ */}
-          {!loading && !error && products.length === 0 && (
+          {!loading && !error && filtered.length === 0 && (
             <p className="text-xs text-slate-500 mt-6">
               No products found for category:{" "}
               <span className="font-mono">{categoryId}</span>
@@ -117,9 +147,9 @@ export default function ProductListPage() {
           )}
 
           {/* ------------------ PRODUCT GRID ------------------ */}
-          {!loading && !error && products.length > 0 && (
+          {!loading && !error && filtered.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {products.map((p) => (
+              {filtered.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={{
@@ -130,7 +160,10 @@ export default function ProductListPage() {
                     mrp: p.mrp,
                     discount: p.discount,
                     rating: p.rating,
-                    image: p.image_url, // match your card component
+                    image:
+                      p.image_url ||
+                      p.image_data ||
+                      "/fallback-product.png",
                   }}
                 />
               ))}

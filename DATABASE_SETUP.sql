@@ -1,4 +1,5 @@
 -- Drop existing tables if they exist (in reverse dependency order)
+DROP TABLE IF EXISTS seo_meta CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS wishlist CASCADE;
 DROP TABLE IF EXISTS reviews CASCADE;
@@ -105,6 +106,26 @@ CREATE TABLE notifications (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Create SEO Meta Table
+CREATE TABLE seo_meta (
+  id INT PRIMARY KEY DEFAULT 1,
+  title VARCHAR(255) NOT NULL DEFAULT 'Seva Sanjeevani • Ayurveda for everyday wellness',
+  description TEXT DEFAULT 'Shop Ayurveda products, herbal supplements, oils, and wellness essentials curated by Seva Sanjeevani.',
+  keywords TEXT DEFAULT 'ayurveda, herbal, wellness, immunity, seva sanjeevani',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT single_row CHECK (id = 1)
+);
+
+-- Insert default SEO meta
+INSERT INTO seo_meta (id, title, description, keywords) 
+VALUES (1, 
+  'Seva Sanjeevani • Ayurveda for everyday wellness',
+  'Shop Ayurveda products, herbal supplements, oils, and wellness essentials curated by Seva Sanjeevani.',
+  'ayurveda, herbal, wellness, immunity, seva sanjeevani'
+)
+ON CONFLICT (id) DO NOTHING;
+
 -- Enable RLS on all tables
 ALTER TABLE cart ENABLE ROW LEVEL SECURITY;
 ALTER TABLE addresses ENABLE ROW LEVEL SECURITY;
@@ -113,6 +134,7 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seo_meta ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for Cart
 CREATE POLICY "Users can view their own cart" ON cart
@@ -194,6 +216,26 @@ CREATE POLICY "System can insert notifications" ON notifications
 
 CREATE POLICY "Users can update their own notifications" ON notifications
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- RLS Policies for SEO Meta
+CREATE POLICY "Anyone can view SEO meta" ON seo_meta
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admins can update SEO meta" ON seo_meta
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can insert SEO meta" ON seo_meta
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
 
 -- Create Indexes for Performance
 CREATE INDEX idx_cart_user_id ON cart(user_id);

@@ -17,9 +17,9 @@ export default function UserLoginPage() {
       return;
     }
 
-    // For now, accept any email/password as a normal user
-    // Later you can connect to backend or validate properly
-    navigate("/home");
+    // TEMPORARY: Accept all login attempts as normal users.
+    // Later, replace with Supabase auth like LoginPage.
+    navigate("/shop"); // FIXED ROUTE
   };
 
   return (
@@ -74,6 +74,7 @@ export default function UserLoginPage() {
             >
               Create account
             </button>
+
             <button
               type="button"
               onClick={() => navigate("/admin-login")}

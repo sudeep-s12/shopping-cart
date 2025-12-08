@@ -8,13 +8,14 @@ import {
 } from "react-router-dom";
 
 // Splash & Auth
-import SplashScreen from "./pages/SplashScreen";
-import LoginPage from "./pages/LoginPage";
-import SignupPage from "./pages/SignupPage";
+import SplashScreen from "./pages/loginpage/SplashScreen";
+import LoginPage from "./pages/loginpage/LoginPage";
+import SignupPage from "./pages/loginpage/SignupPage";
+import UserLoginPage from "./pages/loginpage/UserLoginPage"; // optional if needed
 
 // Admin
-import AdminLoginPage from "./pages/AdminLoginPage";
-import AdminPage from "./pages/AdminPage";
+import AdminLoginPage from "./pages/Admin/AdminLoginPage";
+import AdminPage from "./pages/Admin/AdminPage";
 
 // User Pages
 import HomePage from "./pages/user/HomePage";
@@ -36,26 +37,29 @@ import { UserProvider } from "./context/UserContext";
 function App() {
   return (
     <UserProvider>
-      <CartProvider> {/* Cart global state including coupon */}
+      <CartProvider>
         <WishlistProvider>
           <Router>
             <Routes>
               {/* Splash Screen */}
               <Route path="/" element={<SplashScreen />} />
 
-              {/* Auth Pages */}
+              {/* User Authentication */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route path="/user-login" element={<UserLoginPage />} />
 
               {/* Admin */}
-              <Route path="/admin-login" element={<AdminLoginPage />} />
-              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/admin/dashboard" element={<AdminPage />} />
 
-              {/* User Shop Routes */}
+              {/* User Shopping Routes */}
               <Route path="/shop" element={<HomePage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products/:categoryId" element={<ProductListPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
+
+              {/* Cart & Wishlist */}
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
@@ -64,7 +68,7 @@ function App() {
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/order/:orderId" element={<OrderDetailPage />} />
 
-              {/* Account */}
+              {/* Account Settings */}
               <Route path="/account" element={<AccountPage />} />
 
               {/* Fallback */}

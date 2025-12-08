@@ -1,9 +1,13 @@
-// src/pages/SignupPage.jsx
-import signupLogo from "../assets/signuplogo.jpeg";
+// src/pages/loginpage/SignupPage.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "../context/UserContext";
-import { supabase } from "../lib/supabaseClient";
+
+// FIXED IMPORT PATHS
+import { useUser } from "../../context/UserContext";
+import { supabase } from "../../lib/supabaseClient";
+
+// FIXED: asset path (your assets folder is inside src/assets)
+import signupLogo from "../../assets/signuplogo.jpeg";
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -88,12 +92,13 @@ function SignupPage() {
 
         <div className="relative w-full rounded-3xl bg-slate-950/80 border border-white/10 shadow-[0_22px_70px_rgba(15,23,42,0.95)] backdrop-blur-2xl overflow-hidden flex flex-col md:flex-row">
 
-          {/* LEFT IMAGE / BRAND PANEL */}
+          {/* LEFT IMAGE PANEL */}
           <div
             className="hidden md:flex w-[45%] relative bg-cover bg-center"
             style={{ backgroundImage: `url(${signupLogo})` }}
           >
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-slate-900/95" />
+
             <div className="relative z-10 p-8 flex flex-col justify-between">
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.25em] text-violet-100/80">
@@ -146,9 +151,9 @@ function SignupPage() {
               </button>
             </p>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-5">
               
-              {/* FIRST + LAST NAME */}
+              {/* FIRST & LAST NAME */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-slate-200">
@@ -161,9 +166,7 @@ function SignupPage() {
                     placeholder="Sudeep"
                   />
                   {errors.firstName && (
-                    <p className="text-xs text-rose-400 mt-1">
-                      {errors.firstName}
-                    </p>
+                    <p className="text-xs text-rose-400 mt-1">{errors.firstName}</p>
                   )}
                 </div>
 
@@ -178,9 +181,7 @@ function SignupPage() {
                     placeholder="Kumar"
                   />
                   {errors.lastName && (
-                    <p className="text-xs text-rose-400 mt-1">
-                      {errors.lastName}
-                    </p>
+                    <p className="text-xs text-rose-400 mt-1">{errors.lastName}</p>
                   )}
                 </div>
               </div>
@@ -197,9 +198,7 @@ function SignupPage() {
                   onChange={(e) => setPhone(e.target.value)}
                 />
                 {errors.phone && (
-                  <p className="text-xs text-rose-400 mt-1">
-                    {errors.phone}
-                  </p>
+                  <p className="text-xs text-rose-400 mt-1">{errors.phone}</p>
                 )}
               </div>
 
@@ -216,9 +215,7 @@ function SignupPage() {
                   placeholder="you@example.com"
                 />
                 {errors.email && (
-                  <p className="text-xs text-rose-400 mt-1">
-                    {errors.email}
-                  </p>
+                  <p className="text-xs text-rose-400 mt-1">{errors.email}</p>
                 )}
               </div>
 
@@ -250,9 +247,7 @@ function SignupPage() {
                 </div>
 
                 {errors.password && (
-                  <p className="text-xs text-rose-400 mt-1">
-                    {errors.password}
-                  </p>
+                  <p className="text-xs text-rose-400 mt-1">{errors.password}</p>
                 )}
 
                 {password && (
@@ -301,32 +296,12 @@ function SignupPage() {
                 </label>
               </div>
 
-              <button className="mt-2 w-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-emerald-400 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 hover:-translate-y-[1px] transition">
+              <button
+                type="submit"
+                className="mt-2 w-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-emerald-400 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 hover:-translate-y-[1px] transition"
+              >
                 Create account
               </button>
-
-              <div className="flex items-center gap-4 my-4">
-                <div className="flex-1 h-px bg-slate-700" />
-                <span className="text-xs text-slate-400">
-                  Or continue with
-                </span>
-                <div className="flex-1 h-px bg-slate-700" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 opacity-40 cursor-not-allowed">
-                <button
-                  type="button"
-                  className="py-2 rounded-xl bg-white text-black text-xs font-medium"
-                >
-                  <span className="font-bold text-lg mr-1">G</span> Google
-                </button>
-                <button
-                  type="button"
-                  className="py-2 rounded-xl bg-black text-white text-xs font-medium"
-                >
-                  <span className="text-xl mr-1"></span> Apple
-                </button>
-              </div>
 
               {socialError && (
                 <p className="text-xs text-rose-400 text-center mt-2">
