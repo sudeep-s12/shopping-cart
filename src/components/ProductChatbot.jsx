@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { askGemini } from "../lib/geminiApi";
+import { supabase } from "../lib/supabaseClient";
 
 export default function ProductChatbot({ product }) {
   const location = useLocation();
@@ -11,6 +12,26 @@ export default function ProductChatbot({ product }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories from database
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const { data, error } = await supabase
+          .from("categories")
+          .select("name, emoji")
+          .order("name", { ascending: true });
+
+        if (!error && data) {
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   // Quick reply suggestions
   const quickReplies = [
@@ -27,6 +48,13 @@ export default function ProductChatbot({ product }) {
       let context = `You are a helpful shopping assistant for an Ayurvedic e-commerce store called SevaSanjeevani. `;
       context += `Store info: We offer Ayurvedic products, standard delivery is 3-5 days, free shipping on orders ₹999+, `;
       context += `7-day returns policy, we accept UPI/cards/COD, use coupon AYU20 for 20% off on orders ₹799+. `;
+      
+      // Add categories to context
+      if (categories.length > 0) {
+        const categoryList = categories.map(c => `${c.emoji || ''} ${c.name}`).join(", ");
+        context += `Our product categories: ${categoryList}. `;
+      }
+      
       context += `Keep answers concise (2-3 sentences max). `;
       
       if (hasProduct && product) {
@@ -59,7 +87,11 @@ export default function ProductChatbot({ product }) {
     // Fallback responses based on question keywords
     const q = question.toLowerCase();
     
-    if (q.includes("product") || q.includes("sell") || q.includes("what do you")) {
+    if (q.includes("product") || q.includes("sell") || q.includes("what do you") || q.includes("categor")) {
+      if (categories.length > 0) {
+        const categoryList = categories.map(c => `${c.emoji || '📦'} ${c.name}`).join(", ");
+        return `🌿 We offer Ayurvedic products across these categories: ${categoryList}. Browse any category to explore our full collection!`;
+      }
       return "🌿 We sell a wide range of Ayurvedic products including immunity boosters, digestive care, skin & hair care, stress relief supplements, and more. Browse our categories to explore our full collection!";
     }
     
