@@ -288,16 +288,6 @@ export default function ProductDetailPage() {
               Free delivery on orders above ₹999, otherwise ₹59.
             </p>
           </div>
-
-          <div className="rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-teal-400/10 border border-emerald-400/60 p-5 text-xs shadow-[0_14px_40px_rgba(16,185,129,0.25)]">
-            <h3 className="text-sm font-semibold text-emerald-100 mb-2">
-              Offers & coupons
-            </h3>
-            <ul className="space-y-1 text-emerald-50">
-              <li>• Use AYU20 for flat 20% off above ₹799</li>
-              <li>• Extra 5% off on prepaid orders</li>
-            </ul>
-          </div>
         </aside>
         </div>
       </div>

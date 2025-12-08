@@ -23,28 +23,10 @@ export default function CartPage() {
   const navigate = useNavigate();
 
   const [couponCode, setCouponCode] = useState("");
-  const [couponList, setCouponList] = useState([]);
 
   const hasItems = items.length > 0;
 
-  // -------------------------------
-  // Load Active Coupons from DB
-  // -------------------------------
-  useEffect(() => {
-    async function loadCoupons() {
-      const { data } = await supabase
-        .from("coupons")
-        .select("*")
-        .eq("active", true);
-
-      setCouponList(data || []);
-    }
-    loadCoupons();
-  }, []);
-
-  // -------------------------------
   // APPLY COUPON
-  // -------------------------------
   const applyCouponHandler = async () => {
     if (!couponCode.trim()) return alert("Enter a coupon code");
 
@@ -68,9 +50,7 @@ export default function CartPage() {
     alert(`🎉 Coupon applied! ${data.discount}% OFF`);
   };
 
-  // -------------------------------
   // REMOVE COUPON
-  // -------------------------------
   const removeCouponHandler = () => {
     removeDiscount();
     setCouponCode("");
@@ -173,7 +153,7 @@ export default function CartPage() {
           )}
         </section>
 
-        {/* -------------------- COUPON + SUMMARY -------------------- */}
+        {/* -------------------- COUPON + ORDER SUMMARY -------------------- */}
         <aside className="space-y-3">
           {/* Coupon Box */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
@@ -181,44 +161,28 @@ export default function CartPage() {
               Apply Coupon
             </h2>
 
-            {couponList.length > 0 && (
-              <div className="mb-1 text-[10px] text-slate-400">
-                Available:
-                <div className="flex gap-2 mt-1 flex-wrap">
-                  {couponList.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => setCouponCode(c.code)}
-                      className="px-2 py-1 bg-slate-800 rounded-full text-[10px] border border-slate-700 hover:border-emerald-400"
-                    >
-                      {c.code}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Enter coupon"
+                placeholder="Enter coupon code"
                 value={couponCode}
                 disabled={Boolean(appliedCoupon)}
                 onChange={(e) => setCouponCode(e.target.value)}
-                className="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-[11px]"
+                onKeyDown={(e) => e.key === "Enter" && applyCouponHandler()}
+                className="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-[11px] focus:border-emerald-400 focus:outline-none disabled:opacity-50"
               />
 
               {!appliedCoupon ? (
                 <button
                   onClick={applyCouponHandler}
-                  className="rounded-xl bg-emerald-500 px-3 py-2 text-slate-950 font-semibold text-[11px]"
+                  className="rounded-xl bg-emerald-500 px-3 py-2 text-slate-950 font-semibold text-[11px] hover:bg-emerald-400 transition"
                 >
                   Apply
                 </button>
               ) : (
                 <button
                   onClick={removeCouponHandler}
-                  className="rounded-xl bg-rose-500 px-3 py-2 text-white font-semibold text-[11px]"
+                  className="rounded-xl bg-rose-500 px-3 py-2 text-white font-semibold text-[11px] hover:bg-rose-400 transition"
                 >
                   Remove
                 </button>
@@ -227,7 +191,7 @@ export default function CartPage() {
 
             {appliedCoupon && (
               <p className="text-emerald-300 text-[11px] mt-2">
-                Applied: {appliedCoupon.code} ({appliedCoupon.discount}% OFF)
+                ✓ Applied: {appliedCoupon.code} ({appliedCoupon.discount}% OFF)
               </p>
             )}
           </div>
